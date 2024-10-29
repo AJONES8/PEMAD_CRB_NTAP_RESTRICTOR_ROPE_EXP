@@ -1,9 +1,7 @@
 ---
 title: "Northeast Trawl Advisory Panel 2022 Restrictor Rope Experiment"
 output: 
-  html_document:
-    toc: true
-    toc_float: true
+  github_document:
 editor_options: 
   chunk_output_type: console
 ---
@@ -1192,54 +1190,54 @@ gear_metrics_plot
 # Plotting out products from the script
 
 ```{r}
-#Figure 1
-sampling_map
-
-#Figure 2
-gear_metrics_plot + plot_annotation(tag_levels = 'A')
-
-#Figure 3
-catch_ordination + plot_annotation(tag_levels = 'A')
-
-#Figure 4
-aggregate_weight + plot_layout(widths = c(1, 2)) + plot_annotation(tag_levels = 'A')
-
-#Figure 5
-lp_all + shift_legend2(lp) + plot_layout(widths = c(1, 2)) + plot_annotation(tag_levels = 'A')
-
-#Table 1
-station_table %>% 
-  mutate(DEPTH=DEPTH*0.3048) %>% 
-  rename('Season'=SEASON,
-         'Depth (m)'=DEPTH,
-         'Vessel speed (kn)'=VSPEED,
-         'Tow distance (m)'=TowDistTrack,
-         'Net height (m)'=NetHeight,
-         'Door width (m)' = DoorWidth,
-         'Net width (m)'= NetWidth,
-         'Cable out (ftm)' =  CableOut_S) %>% 
-          ungroup() %>% gt() %>% fmt_number(columns=c(4:10),decimals = 2)
-
-Station %>% mutate(DEPTH=DepthBeg*0.3048) %>% .$DEPTH %>% min()
-
-#Table 2
-ct
-
-#Table 3
-model_tab %>% gt() %>% fmt_number(columns=c(6:10),decimals = 2)
-
-#Table 4
-length_model_tab %>% gt() %>% fmt_number(columns=c(6:10),decimals = 2)
-
-
-#Figure S1
-raw_weight_plot + ind_sp_raw_weight_plot + plot_annotation(tag_levels = 'A')
-
-#Figure S2
-mirrored_lengths
-
-#Figure S3
-shift_legend2(t)
+# #Figure 1
+# sampling_map
+# 
+# #Figure 2
+# gear_metrics_plot + plot_annotation(tag_levels = 'A')
+# 
+# #Figure 3
+# catch_ordination + plot_annotation(tag_levels = 'A')
+# 
+# #Figure 4
+# aggregate_weight + plot_layout(widths = c(1, 2)) + plot_annotation(tag_levels = 'A')
+# 
+# #Figure 5
+# lp_all + shift_legend2(lp) + plot_layout(widths = c(1, 2)) + plot_annotation(tag_levels = 'A')
+# 
+# #Table 1
+# station_table %>% 
+#   mutate(DEPTH=DEPTH*0.3048) %>% 
+#   rename('Season'=SEASON,
+#          'Depth (m)'=DEPTH,
+#          'Vessel speed (kn)'=VSPEED,
+#          'Tow distance (m)'=TowDistTrack,
+#          'Net height (m)'=NetHeight,
+#          'Door width (m)' = DoorWidth,
+#          'Net width (m)'= NetWidth,
+#          'Cable out (ftm)' =  CableOut_S) %>% 
+#           ungroup() %>% gt() %>% fmt_number(columns=c(4:10),decimals = 2)
+# 
+# Station %>% mutate(DEPTH=DepthBeg*0.3048) %>% .$DEPTH %>% min()
+# 
+# #Table 2
+# ct
+# 
+# #Table 3
+# model_tab %>% gt() %>% fmt_number(columns=c(6:10),decimals = 2)
+# 
+# #Table 4
+# length_model_tab %>% gt() %>% fmt_number(columns=c(6:10),decimals = 2)
+# 
+# 
+# #Figure S1
+# raw_weight_plot + ind_sp_raw_weight_plot + plot_annotation(tag_levels = 'A')
+# 
+# #Figure S2
+# mirrored_lengths
+# 
+# #Figure S3
+# shift_legend2(t)
 
 
 ```
