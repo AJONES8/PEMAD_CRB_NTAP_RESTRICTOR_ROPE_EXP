@@ -529,10 +529,10 @@ catch_table <- Catch %>% as.tibble() %>%
                    N_STATIONS=sum(POS_STATION)) %>%
   dplyr::arrange(-N_STATIONS) %>%
   left_join(.,NM_Species_Code_List_Color_Coordinated %>% mutate(VIMSCODE=as.numeric(SPCODE)) %>%
-              dplyr::select(VIMSCODE,COMMON),by=('VIMSCODE')) %>%
+              dplyr::select(VIMSCODE,COMMON),by=('VIMSCODE')) %>% ungroup() %>%
       mutate(PER_STAT = round(N_STATIONS/max(N_STATIONS+2),2)) %>% 
       arrange(PER_STAT) %>% arrange(desc(N_STATIONS)) %>%
-  filter(AvgTotCOUNT > 10,AvgTotWght>2.5,PER_STAT > 0.5) %>%
+  #filter(AvgTotCOUNT > 10,AvgTotWght>2.5,PER_STAT > 0.35) %>%
   relocate('Restrictor'=Restrictor,'Species'=COMMON,
            'Total positive stations'=N_STATIONS,
            'Proportion positive stations'=PER_STAT,
