@@ -8,7 +8,7 @@ editor_options:
 
 # Loading data setting options
 
-Here I'm connecting to the MS Access database file. The path is wonky, but you can set it to where your file lives. I also look at the tables that are in there right now. Not 100% sure what each captures, but I tried some explorations below.
+Here I'm connecting to the MS Access database file.
 
 ```{r message=FALSE, warning=FALSE}
 knitr::opts_chunk$set(fig.path='figs/',echo=TRUE, warning=FALSE, messages=FALSE, results = TRUE, dpi=500)
@@ -63,7 +63,8 @@ NM_Species_Code_List_Color_Coordinated <- read_excel("data/NM Species Code List 
 ```
 
 # A species subset
-This is one way to subset the species. Summarizing the largest counts and weights and then making a vector of the species on both lists. this is not used later on, but was useful in exploring the data initially.
+
+This is one way to subset the species. Summarizing the largest counts and weights and then making a vector of the species on both lists.
 
 ```{r message=FALSE, warning=FALSE}
 #making a vector of common species
@@ -126,7 +127,8 @@ d <- Catch %>%
 ```
 
 # Ordination of stations
-I'm using the lat 4 digits of the station code to plot out the catches in space. The species values are shown in red to highlight the specific catch elements that are driving patterns. I was thinking about this as maybe a way to double check for stations or pairs of stations that are outliers (0424 and 9424 for example). Right now it's just on the ~20 species we identify above.
+
+We're using the lat 4 digits of the station code to plot out the catches in space. The species values are shown in red to highlight the specific catch elements that are driving patterns. I was thinking about this as maybe a way to double check for stations or pairs of stations that are outliers (0424 and 9424 for example). Right now it's just on the ~20 species we identify above.
 
 ```{r fig.height=7, fig.width=12, message=FALSE, warning=FALSE}
 library(vegan)
@@ -210,6 +212,8 @@ catch_ordination
 ```
 
 # Making a map of the sampling sites
+
+A map of the experimental tow locations.
 
 ```{r fig.height=9, fig.width=9}
 #Making a quick map of stations
@@ -314,6 +318,8 @@ sampling_map <- ggplot() +
 
 # Adding the solar zenith info
 
+This is coming from an R package astrocalc4r. Interest in light levels and their impact on catch was of interest from NTAP members.
+
 ```{r}
 library(fishmethods)
 
@@ -338,6 +344,8 @@ pair_zen_data <- station_zen_data %>%
 ```
 
 # Looking at the distance between tows
+
+The goal was to make tows as close together as feasible to make the data set similar to previous twin trawl based NTAP experiments. The few tows pairs that were farther apart are identified as well.
 
 ```{r}
 #Looking at the distance between tows
@@ -387,7 +395,7 @@ length(crossing)
 
 # Adding in the current direction relative to the tow
 
-As reported by the survey crew
+As reported by the survey crew.
 
 ```{r}
 #Looking current direction in pair
@@ -501,6 +509,7 @@ raw_weight_plot + ind_sp_raw_weight_plot + plot_annotation(tag_levels = 'A')
 ```
 
 # A table of catch statisitcs
+
 This table becomes Table 2 and helps us identify the species of interest for the study.
 
 ```{r}
@@ -543,6 +552,8 @@ catch_table <- Catch %>% as.tibble() %>%
            'Standard error of station count'=SETotCOUNT,
            'Coefficient of variation of station count'=CVTotCOUNT)
 
+catch_table
+
 library(gt)
 ct <- catch_table %>% ungroup() %>% dplyr::select(-VIMSCODE) %>%
   gt(groupname_col = c("Species"),rowname_col = "Restrictor") %>% 
@@ -562,13 +573,13 @@ ct <- catch_table %>% ungroup() %>% dplyr::select(-VIMSCODE) %>%
     'Standard error of station count' = md("**SE of station count**"),
     'Coefficient of variation of station count' = md("**CV of station count**")) 
 
-ct #%>% gtsave("tab_2.html") #uncomment to save as html 
+#ct %>% gtsave("tab_2.html") #uncomment to save as html 
 
 ```
 
 # More catch composition stats
 
-Also making station summary tables
+Also making station summary tables.
 
 ```{r}
 #Looking at the number of number of paired positives
@@ -610,6 +621,7 @@ station_table <- Station %>%
 ```
 
 # Plotting Aggregate Weights By Species
+
 Looking at some of the more common species. Black line is a 1:1. Models are basic GLM with 95% confidence intervals. Pairs of stations with outlying values are noted. These outliers are retained for the analysis but having some impact and potentially could be removed in some cases (e.g., pair F424 a large school of menhaden was caught in the tow without a restrictor and the vessel moved away for the paired set with the restrictor).
 
 ```{r fig.height=12, fig.width=12}
@@ -646,7 +658,7 @@ Catch %>% as.tibble() %>%
 
 # Aggregate weight model analysis
 
-This is just one way to explore how well the values from paired stations align. We're log 10 + constant transforming the data then fitting a simple model to the data. Values on the x axis are catches without the restrictor and values on the y are catches with the restrictor. The plots aren't exactly what the model is showing, but they are similar.
+This is just one way to explore how well the values from paired stations align. We're log 10 + constant (1) transforming the data then fitting a simple model to the data. Values on the x axis are catches without the restrictor and values on the y are catches with the restrictor. The plots aren't exactly what the model is showing, but they are similar.
 
 ```{r fig.height=12, fig.width=12, message=FALSE, warning=FALSE}
 library(performance)
@@ -675,7 +687,7 @@ model_1 <- gam(Y ~ s(N)+ s(N,COMMON,bs='sz'),
 model_2 <- gam(Y ~ s(N)+ s(N, by = COMMON), 
                data = mod_data, method='REML')
 
-compare_performance(model_0,model_1,model_2,rank=TRUE)
+compare_performance(model_0,model_1,model_2,rank=TRUE,metrics = c('R2','RMSE','AIC weights'))
 
 AIC(model_1)
 (model_1)
@@ -692,7 +704,7 @@ new_data_6 <-mod_data %>% filter(COMMON == unique(mod_data$COMMON)[6])
 new_data_7 <-mod_data %>% filter(COMMON == unique(mod_data$COMMON)[7])
 
 new_data <- bind_rows(new_data_1,new_data_2,new_data_3,new_data_4,new_data_5,new_data_6,new_data_7)
-m1_pred <- fitted_values(model_1, data = new_data, scale = "response")
+m1_pred <- fitted_values(model_2, data = new_data, scale = "response")
 
 p <- ggplot(m1_pred, aes(x = 10^N, y = 10^fitted,
                     colour = COMMON,group=COMMON)) +
@@ -783,9 +795,9 @@ model_tab <- tibble(
 
 # Exploring the individual data
 
-Looking at density plots for each of the focus species. The expansion of counts happens using the 'uncount' function in dplyr. Definitely curious if that makes sense!
+Looking at density plots for each of the focus species. The expansion of counts happens using the 'uncount' function in dplyr.
 
-```{r fig.height=6, fig.width=6, message=FALSE, warning=FALSE}
+```{r fig.height=6, fig.width=12, message=FALSE, warning=FALSE}
 #Making long data for plotting with ggplot
 individual_data <- Individual %>% 
   left_join(.,Station) %>% 
@@ -821,7 +833,7 @@ mirrored_lengths
 # Length based modeling
 ## Making data and testing for over/under dispersion
 
-Fitting a regular GLM to the individual data to determine if a binomial model is appropriate (i.e., 'Dispersion parameter for binomial family taken to be 1')
+Fitting a regular GLM to the individual data to determine if a binomial model is appropriate (i.e., 'Dispersion parameter for binomial family taken to be 1').
 
 ```{r fig.height=6, fig.width=6, message=FALSE, warning=FALSE}
 #Making wide format data for fitting binomial model
@@ -894,7 +906,8 @@ print(paste("Dispersion parameter is:", model.disp.test$dispersion))
 ```
 
 ## Fitting length-based GAMM models
-Here we're interested in if there are significant effects of the covariates and how large the effects are
+
+Here we're interested in if there are significant effects of the covariates and how large the effects are.
 
 ```{r}
 #Fitting basic binomial GAM models then adding in random intercepts for the station pair and a random slope for each station pair
@@ -937,11 +950,11 @@ length_mod_bi_3 <- gam(PROP ~ s(LENGTH_CM) + s(LENGTH_CM,COMMON,bs='sz') +
 
 # Comparing model fits 
 
-Making plots for the models fit to individual catch data
+Making plots of model predictions for the best model fit to individual catch data.
 
 ```{r}
 #Comparing model fit
-compare_performance(length_mod_bi_0,length_mod_bi_1,length_mod_bi_2,length_mod_bi_3,metrics = c('R2','RMSE'),rank=TRUE)
+compare_performance(length_mod_bi_0,length_mod_bi_1,length_mod_bi_2,length_mod_bi_3,metrics ='common',rank=TRUE)
 
 #Making a table of mode lfit statistics
 length_model_fam <- c(length_mod_bi_0 %>% summary() %>% .$family %>% .[1],
@@ -1109,6 +1122,8 @@ plot(length_mod_bi_2a.emmeans, show_data=T) +
 
 # Looking at gear metrics
 
+These are derived from the Darana's simrad net mesuration system.
+
 ```{r}
 library(patchwork)
 #Revised gear plots
@@ -1188,6 +1203,8 @@ gear_metrics_plot
 ```
 
 # Plotting out products from the script
+
+Uncomment to run code associated with each MS component.
 
 ```{r}
 # #Figure 1

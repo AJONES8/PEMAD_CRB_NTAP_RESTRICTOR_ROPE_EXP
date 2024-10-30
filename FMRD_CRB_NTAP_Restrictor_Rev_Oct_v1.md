@@ -3,10 +3,7 @@ Northeast Trawl Advisory Panel 2022 Restrictor Rope Experiment
 
 # Loading data setting options
 
-Here I’m connecting to the MS Access database file. The path is wonky,
-but you can set it to where your file lives. I also look at the tables
-that are in there right now. Not 100% sure what each captures, but I
-tried some explorations below.
+Here I’m connecting to the MS Access database file.
 
 ``` r
 knitr::opts_chunk$set(fig.path='figs/',echo=TRUE, warning=FALSE, messages=FALSE, results = TRUE, dpi=500)
@@ -101,8 +98,7 @@ NM_Species_Code_List_Color_Coordinated <- read_excel("data/NM Species Code List 
 # A species subset
 
 This is one way to subset the species. Summarizing the largest counts
-and weights and then making a vector of the species on both lists. this
-is not used later on, but was useful in exploring the data initially.
+and weights and then making a vector of the species on both lists.
 
 ``` r
 #making a vector of common species
@@ -197,7 +193,7 @@ d <- Catch %>%
 
 # Ordination of stations
 
-I’m using the lat 4 digits of the station code to plot out the catches
+We’re using the lat 4 digits of the station code to plot out the catches
 in space. The species values are shown in red to highlight the specific
 catch elements that are driving patterns. I was thinking about this as
 maybe a way to double check for stations or pairs of stations that are
@@ -223,39 +219,36 @@ catch_mds <- metaMDS(catch_ord %>% dplyr::select(-Restrictor,-STATION), distance
     ## Square root transformation
     ## Wisconsin double standardization
     ## Run 0 stress 0.1627368 
-    ## Run 1 stress 0.1627383 
-    ## ... Procrustes: rmse 0.0003660604  max resid 0.003417887 
+    ## Run 1 stress 0.1634004 
+    ## Run 2 stress 0.1642359 
+    ## Run 3 stress 0.1647809 
+    ## Run 4 stress 0.162788 
+    ## ... Procrustes: rmse 0.003857943  max resid 0.03908703 
+    ## Run 5 stress 0.1647802 
+    ## Run 6 stress 0.1647817 
+    ## Run 7 stress 0.164782 
+    ## Run 8 stress 0.1627379 
+    ## ... Procrustes: rmse 0.0003118201  max resid 0.002863717 
     ## ... Similar to previous best
-    ## Run 2 stress 0.1627378 
-    ## ... Procrustes: rmse 0.0003602895  max resid 0.003547188 
+    ## Run 9 stress 0.1647815 
+    ## Run 10 stress 0.1632982 
+    ## Run 11 stress 0.1642266 
+    ## Run 12 stress 0.1647822 
+    ## Run 13 stress 0.1633472 
+    ## Run 14 stress 0.1647812 
+    ## Run 15 stress 0.1627381 
+    ## ... Procrustes: rmse 0.001141237  max resid 0.01163557 
+    ## Run 16 stress 0.1627373 
+    ## ... Procrustes: rmse 0.0008132958  max resid 0.008274171 
     ## ... Similar to previous best
-    ## Run 3 stress 0.163299 
-    ## Run 4 stress 0.1627379 
-    ## ... Procrustes: rmse 0.0003002778  max resid 0.002688147 
+    ## Run 17 stress 0.1633 
+    ## Run 18 stress 0.1647937 
+    ## Run 19 stress 0.1627367 
+    ## ... New best solution
+    ## ... Procrustes: rmse 0.0008771135  max resid 0.00899653 
     ## ... Similar to previous best
-    ## Run 5 stress 0.1642369 
-    ## Run 6 stress 0.1627373 
-    ## ... Procrustes: rmse 0.0002155917  max resid 0.001971255 
-    ## ... Similar to previous best
-    ## Run 7 stress 0.1632992 
-    ## Run 8 stress 0.1642375 
-    ## Run 9 stress 0.1632972 
-    ## Run 10 stress 0.1642337 
-    ## Run 11 stress 0.1627386 
-    ## ... Procrustes: rmse 0.000415499  max resid 0.003957733 
-    ## ... Similar to previous best
-    ## Run 12 stress 0.1632983 
-    ## Run 13 stress 0.1627373 
-    ## ... Procrustes: rmse 0.0009988282  max resid 0.01026259 
-    ## Run 14 stress 0.1632985 
-    ## Run 15 stress 0.1647814 
-    ## Run 16 stress 0.1627374 
-    ## ... Procrustes: rmse 0.001009967  max resid 0.01040974 
-    ## Run 17 stress 0.1632988 
-    ## Run 18 stress 0.1760951 
-    ## Run 19 stress 0.1647797 
-    ## Run 20 stress 0.16478 
-    ## *** Best solution repeated 5 times
+    ## Run 20 stress 0.1642358 
+    ## *** Best solution repeated 1 times
 
 ``` r
 # test_set <- fortify(catch_mds) %>% filter(Score == 'sites') %>% cbind(.,catch_ord$STATION) %>% dplyr::rename(STATION=`catch_ord$STATION`) %>%
@@ -330,6 +323,8 @@ catch_ordination
 ![](figs/unnamed-chunk-3-2.png)<!-- -->
 
 # Making a map of the sampling sites
+
+A map of the experimental tow locations.
 
 ``` r
 #Making a quick map of stations
@@ -479,6 +474,9 @@ sampling_map <- ggplot() +
 
 # Adding the solar zenith info
 
+This is coming from an R package astrocalc4r. Interest in light levels
+and their impact on catch was of interest from NTAP members.
+
 ``` r
 library(fishmethods)
 
@@ -508,6 +506,10 @@ pair_zen_data <- station_zen_data %>%
     ## `.groups` argument.
 
 # Looking at the distance between tows
+
+The goal was to make tows as close together as feasible to make the data
+set similar to previous twin trawl based NTAP experiments. The few tows
+pairs that were farther apart are identified as well.
 
 ``` r
 #Looking at the distance between tows
@@ -583,7 +585,7 @@ length(crossing)
 
 # Adding in the current direction relative to the tow
 
-As reported by the survey crew
+As reported by the survey crew.
 
 ``` r
 #Looking current direction in pair
@@ -782,6 +784,35 @@ catch_table <- Catch %>% as.tibble() %>%
     ## `.groups` argument.
 
 ``` r
+catch_table
+```
+
+    ## # A tibble: 14 × 13
+    ##    Restrictor Species              Total positive stati…¹ Proportion positive …²
+    ##    <chr>      <chr>                                 <dbl>                  <dbl>
+    ##  1 Y          longfin inshore squ…                     71                   0.97
+    ##  2 N          longfin inshore squ…                     68                   0.93
+    ##  3 Y          little skate                             64                   0.88
+    ##  4 N          little skate                             63                   0.86
+    ##  5 N          butterfish                               61                   0.84
+    ##  6 Y          butterfish                               60                   0.82
+    ##  7 N          scup                                     53                   0.73
+    ##  8 Y          scup                                     48                   0.66
+    ##  9 Y          winter flounder                          47                   0.64
+    ## 10 N          winter flounder                          43                   0.59
+    ## 11 Y          silver hake                              38                   0.52
+    ## 12 N          silver hake                              37                   0.51
+    ## 13 N          red hake                                 28                   0.38
+    ## 14 Y          red hake                                 28                   0.38
+    ## # ℹ abbreviated names: ¹​`Total positive stations`,
+    ## #   ²​`Proportion positive stations`
+    ## # ℹ 9 more variables: `Total weight (kgs)` <dbl>, `Station total count` <dbl>,
+    ## #   `Station mean weight (kgs)` <dbl>,
+    ## #   `Standard error station weight (kgs)` <dbl>,
+    ## #   `Coefficient of variation of station weight (kgs)` <dbl>,
+    ## #   `Station mean count` <dbl>, `Standard error of station count` <dbl>, …
+
+``` r
 library(gt)
 ct <- catch_table %>% ungroup() %>% dplyr::select(-VIMSCODE) %>%
   gt(groupname_col = c("Species"),rowname_col = "Restrictor") %>% 
@@ -801,650 +832,12 @@ ct <- catch_table %>% ungroup() %>% dplyr::select(-VIMSCODE) %>%
     'Standard error of station count' = md("**SE of station count**"),
     'Coefficient of variation of station count' = md("**CV of station count**")) 
 
-ct #%>% gtsave("tab_2.html") #uncomment to save as html 
+#ct %>% gtsave("tab_2.html") #uncomment to save as html 
 ```
-
-<div id="djuyfbfpve" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#djuyfbfpve table {
-  font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-#djuyfbfpve thead, #djuyfbfpve tbody, #djuyfbfpve tfoot, #djuyfbfpve tr, #djuyfbfpve td, #djuyfbfpve th {
-  border-style: none;
-}
-
-#djuyfbfpve p {
-  margin: 0;
-  padding: 0;
-}
-
-#djuyfbfpve .gt_table {
-  display: table;
-  border-collapse: collapse;
-  line-height: normal;
-  margin-left: auto;
-  margin-right: auto;
-  color: #333333;
-  font-size: 16px;
-  font-weight: normal;
-  font-style: normal;
-  background-color: #FFFFFF;
-  width: auto;
-  border-top-style: solid;
-  border-top-width: 2px;
-  border-top-color: #A8A8A8;
-  border-right-style: none;
-  border-right-width: 2px;
-  border-right-color: #D3D3D3;
-  border-bottom-style: solid;
-  border-bottom-width: 2px;
-  border-bottom-color: #A8A8A8;
-  border-left-style: none;
-  border-left-width: 2px;
-  border-left-color: #D3D3D3;
-}
-
-#djuyfbfpve .gt_caption {
-  padding-top: 4px;
-  padding-bottom: 4px;
-}
-
-#djuyfbfpve .gt_title {
-  color: #333333;
-  font-size: 125%;
-  font-weight: initial;
-  padding-top: 4px;
-  padding-bottom: 4px;
-  padding-left: 5px;
-  padding-right: 5px;
-  border-bottom-color: #FFFFFF;
-  border-bottom-width: 0;
-}
-
-#djuyfbfpve .gt_subtitle {
-  color: #333333;
-  font-size: 85%;
-  font-weight: initial;
-  padding-top: 3px;
-  padding-bottom: 5px;
-  padding-left: 5px;
-  padding-right: 5px;
-  border-top-color: #FFFFFF;
-  border-top-width: 0;
-}
-
-#djuyfbfpve .gt_heading {
-  background-color: #FFFFFF;
-  text-align: center;
-  border-bottom-color: #FFFFFF;
-  border-left-style: none;
-  border-left-width: 1px;
-  border-left-color: #D3D3D3;
-  border-right-style: none;
-  border-right-width: 1px;
-  border-right-color: #D3D3D3;
-}
-
-#djuyfbfpve .gt_bottom_border {
-  border-bottom-style: solid;
-  border-bottom-width: 2px;
-  border-bottom-color: #D3D3D3;
-}
-
-#djuyfbfpve .gt_col_headings {
-  border-top-style: solid;
-  border-top-width: 2px;
-  border-top-color: #D3D3D3;
-  border-bottom-style: solid;
-  border-bottom-width: 2px;
-  border-bottom-color: #D3D3D3;
-  border-left-style: none;
-  border-left-width: 1px;
-  border-left-color: #D3D3D3;
-  border-right-style: none;
-  border-right-width: 1px;
-  border-right-color: #D3D3D3;
-}
-
-#djuyfbfpve .gt_col_heading {
-  color: #333333;
-  background-color: #FFFFFF;
-  font-size: 100%;
-  font-weight: normal;
-  text-transform: inherit;
-  border-left-style: none;
-  border-left-width: 1px;
-  border-left-color: #D3D3D3;
-  border-right-style: none;
-  border-right-width: 1px;
-  border-right-color: #D3D3D3;
-  vertical-align: bottom;
-  padding-top: 5px;
-  padding-bottom: 6px;
-  padding-left: 5px;
-  padding-right: 5px;
-  overflow-x: hidden;
-}
-
-#djuyfbfpve .gt_column_spanner_outer {
-  color: #333333;
-  background-color: #FFFFFF;
-  font-size: 100%;
-  font-weight: normal;
-  text-transform: inherit;
-  padding-top: 0;
-  padding-bottom: 0;
-  padding-left: 4px;
-  padding-right: 4px;
-}
-
-#djuyfbfpve .gt_column_spanner_outer:first-child {
-  padding-left: 0;
-}
-
-#djuyfbfpve .gt_column_spanner_outer:last-child {
-  padding-right: 0;
-}
-
-#djuyfbfpve .gt_column_spanner {
-  border-bottom-style: solid;
-  border-bottom-width: 2px;
-  border-bottom-color: #D3D3D3;
-  vertical-align: bottom;
-  padding-top: 5px;
-  padding-bottom: 5px;
-  overflow-x: hidden;
-  display: inline-block;
-  width: 100%;
-}
-
-#djuyfbfpve .gt_spanner_row {
-  border-bottom-style: hidden;
-}
-
-#djuyfbfpve .gt_group_heading {
-  padding-top: 8px;
-  padding-bottom: 8px;
-  padding-left: 5px;
-  padding-right: 5px;
-  color: #333333;
-  background-color: #FFFFFF;
-  font-size: 100%;
-  font-weight: initial;
-  text-transform: inherit;
-  border-top-style: solid;
-  border-top-width: 2px;
-  border-top-color: #D3D3D3;
-  border-bottom-style: solid;
-  border-bottom-width: 2px;
-  border-bottom-color: #D3D3D3;
-  border-left-style: none;
-  border-left-width: 1px;
-  border-left-color: #D3D3D3;
-  border-right-style: none;
-  border-right-width: 1px;
-  border-right-color: #D3D3D3;
-  vertical-align: middle;
-  text-align: left;
-}
-
-#djuyfbfpve .gt_empty_group_heading {
-  padding: 0.5px;
-  color: #333333;
-  background-color: #FFFFFF;
-  font-size: 100%;
-  font-weight: initial;
-  border-top-style: solid;
-  border-top-width: 2px;
-  border-top-color: #D3D3D3;
-  border-bottom-style: solid;
-  border-bottom-width: 2px;
-  border-bottom-color: #D3D3D3;
-  vertical-align: middle;
-}
-
-#djuyfbfpve .gt_from_md > :first-child {
-  margin-top: 0;
-}
-
-#djuyfbfpve .gt_from_md > :last-child {
-  margin-bottom: 0;
-}
-
-#djuyfbfpve .gt_row {
-  padding-top: 8px;
-  padding-bottom: 8px;
-  padding-left: 5px;
-  padding-right: 5px;
-  margin: 10px;
-  border-top-style: solid;
-  border-top-width: 1px;
-  border-top-color: #D3D3D3;
-  border-left-style: none;
-  border-left-width: 1px;
-  border-left-color: #D3D3D3;
-  border-right-style: none;
-  border-right-width: 1px;
-  border-right-color: #D3D3D3;
-  vertical-align: middle;
-  overflow-x: hidden;
-}
-
-#djuyfbfpve .gt_stub {
-  color: #333333;
-  background-color: #FFFFFF;
-  font-size: 100%;
-  font-weight: initial;
-  text-transform: inherit;
-  border-right-style: solid;
-  border-right-width: 2px;
-  border-right-color: #D3D3D3;
-  padding-left: 5px;
-  padding-right: 5px;
-}
-
-#djuyfbfpve .gt_stub_row_group {
-  color: #333333;
-  background-color: #FFFFFF;
-  font-size: 100%;
-  font-weight: initial;
-  text-transform: inherit;
-  border-right-style: solid;
-  border-right-width: 2px;
-  border-right-color: #D3D3D3;
-  padding-left: 5px;
-  padding-right: 5px;
-  vertical-align: top;
-}
-
-#djuyfbfpve .gt_row_group_first td {
-  border-top-width: 2px;
-}
-
-#djuyfbfpve .gt_row_group_first th {
-  border-top-width: 2px;
-}
-
-#djuyfbfpve .gt_summary_row {
-  color: #333333;
-  background-color: #FFFFFF;
-  text-transform: inherit;
-  padding-top: 8px;
-  padding-bottom: 8px;
-  padding-left: 5px;
-  padding-right: 5px;
-}
-
-#djuyfbfpve .gt_first_summary_row {
-  border-top-style: solid;
-  border-top-color: #D3D3D3;
-}
-
-#djuyfbfpve .gt_first_summary_row.thick {
-  border-top-width: 2px;
-}
-
-#djuyfbfpve .gt_last_summary_row {
-  padding-top: 8px;
-  padding-bottom: 8px;
-  padding-left: 5px;
-  padding-right: 5px;
-  border-bottom-style: solid;
-  border-bottom-width: 2px;
-  border-bottom-color: #D3D3D3;
-}
-
-#djuyfbfpve .gt_grand_summary_row {
-  color: #333333;
-  background-color: #FFFFFF;
-  text-transform: inherit;
-  padding-top: 8px;
-  padding-bottom: 8px;
-  padding-left: 5px;
-  padding-right: 5px;
-}
-
-#djuyfbfpve .gt_first_grand_summary_row {
-  padding-top: 8px;
-  padding-bottom: 8px;
-  padding-left: 5px;
-  padding-right: 5px;
-  border-top-style: double;
-  border-top-width: 6px;
-  border-top-color: #D3D3D3;
-}
-
-#djuyfbfpve .gt_last_grand_summary_row_top {
-  padding-top: 8px;
-  padding-bottom: 8px;
-  padding-left: 5px;
-  padding-right: 5px;
-  border-bottom-style: double;
-  border-bottom-width: 6px;
-  border-bottom-color: #D3D3D3;
-}
-
-#djuyfbfpve .gt_striped {
-  background-color: rgba(128, 128, 128, 0.05);
-}
-
-#djuyfbfpve .gt_table_body {
-  border-top-style: solid;
-  border-top-width: 2px;
-  border-top-color: #D3D3D3;
-  border-bottom-style: solid;
-  border-bottom-width: 2px;
-  border-bottom-color: #D3D3D3;
-}
-
-#djuyfbfpve .gt_footnotes {
-  color: #333333;
-  background-color: #FFFFFF;
-  border-bottom-style: none;
-  border-bottom-width: 2px;
-  border-bottom-color: #D3D3D3;
-  border-left-style: none;
-  border-left-width: 2px;
-  border-left-color: #D3D3D3;
-  border-right-style: none;
-  border-right-width: 2px;
-  border-right-color: #D3D3D3;
-}
-
-#djuyfbfpve .gt_footnote {
-  margin: 0px;
-  font-size: 90%;
-  padding-top: 4px;
-  padding-bottom: 4px;
-  padding-left: 5px;
-  padding-right: 5px;
-}
-
-#djuyfbfpve .gt_sourcenotes {
-  color: #333333;
-  background-color: #FFFFFF;
-  border-bottom-style: none;
-  border-bottom-width: 2px;
-  border-bottom-color: #D3D3D3;
-  border-left-style: none;
-  border-left-width: 2px;
-  border-left-color: #D3D3D3;
-  border-right-style: none;
-  border-right-width: 2px;
-  border-right-color: #D3D3D3;
-}
-
-#djuyfbfpve .gt_sourcenote {
-  font-size: 90%;
-  padding-top: 4px;
-  padding-bottom: 4px;
-  padding-left: 5px;
-  padding-right: 5px;
-}
-
-#djuyfbfpve .gt_left {
-  text-align: left;
-}
-
-#djuyfbfpve .gt_center {
-  text-align: center;
-}
-
-#djuyfbfpve .gt_right {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-#djuyfbfpve .gt_font_normal {
-  font-weight: normal;
-}
-
-#djuyfbfpve .gt_font_bold {
-  font-weight: bold;
-}
-
-#djuyfbfpve .gt_font_italic {
-  font-style: italic;
-}
-
-#djuyfbfpve .gt_super {
-  font-size: 65%;
-}
-
-#djuyfbfpve .gt_footnote_marks {
-  font-size: 75%;
-  vertical-align: 0.4em;
-  position: initial;
-}
-
-#djuyfbfpve .gt_asterisk {
-  font-size: 100%;
-  vertical-align: 0;
-}
-
-#djuyfbfpve .gt_indent_1 {
-  text-indent: 5px;
-}
-
-#djuyfbfpve .gt_indent_2 {
-  text-indent: 10px;
-}
-
-#djuyfbfpve .gt_indent_3 {
-  text-indent: 15px;
-}
-
-#djuyfbfpve .gt_indent_4 {
-  text-indent: 20px;
-}
-
-#djuyfbfpve .gt_indent_5 {
-  text-indent: 25px;
-}
-</style>
-<table class="gt_table" data-quarto-disable-processing="false" data-quarto-bootstrap="false">
-  <thead>
-    <tr class="gt_col_headings">
-      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1" scope="col" id=""></th>
-      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1" scope="col" id="&lt;strong&gt;Tot. positive stations&lt;/strong&gt;"><strong>Tot. positive stations</strong></th>
-      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1" scope="col" id="&lt;strong&gt;Prop. positive stations&lt;/strong&gt;"><strong>Prop. positive stations</strong></th>
-      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1" scope="col" id="&lt;strong&gt;Total weight (kgs)&lt;/strong&gt;"><strong>Total weight (kgs)</strong></th>
-      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1" scope="col" id="&lt;strong&gt;Station total count&lt;/strong&gt;"><strong>Station total count</strong></th>
-      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1" scope="col" id="&lt;strong&gt;Station mean weight (kgs)&lt;/strong&gt;"><strong>Station mean weight (kgs)</strong></th>
-      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1" scope="col" id="&lt;strong&gt;SE station weight (kgs)&lt;/strong&gt;"><strong>SE station weight (kgs)</strong></th>
-      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1" scope="col" id="&lt;strong&gt;CV of station weight (kgs)&lt;/strong&gt;"><strong>CV of station weight (kgs)</strong></th>
-      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1" scope="col" id="&lt;strong&gt;Station mean count&lt;/strong&gt;"><strong>Station mean count</strong></th>
-      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1" scope="col" id="&lt;strong&gt;SE of station count&lt;/strong&gt;"><strong>SE of station count</strong></th>
-      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1" scope="col" id="&lt;strong&gt;CV of station count&lt;/strong&gt;"><strong>CV of station count</strong></th>
-    </tr>
-  </thead>
-  <tbody class="gt_table_body">
-    <tr class="gt_group_heading_row">
-      <th colspan="11" class="gt_group_heading" scope="colgroup" id="longfin inshore squid">longfin inshore squid</th>
-    </tr>
-    <tr class="gt_row_group_first"><th id="stub_1_1" scope="row" class="gt_row gt_left gt_stub">Y</th>
-<td headers="longfin inshore squid stub_1_1 Total positive stations" class="gt_row gt_right">71</td>
-<td headers="longfin inshore squid stub_1_1 Proportion positive stations" class="gt_row gt_right">0.97</td>
-<td headers="longfin inshore squid stub_1_1 Total weight (kgs)" class="gt_row gt_right">2,734</td>
-<td headers="longfin inshore squid stub_1_1 Station total count" class="gt_row gt_right">96,787.0</td>
-<td headers="longfin inshore squid stub_1_1 Station mean weight (kgs)" class="gt_row gt_right">38.5</td>
-<td headers="longfin inshore squid stub_1_1 Standard error station weight (kgs)" class="gt_row gt_right">7.5</td>
-<td headers="longfin inshore squid stub_1_1 Coefficient of variation of station weight (kgs)" class="gt_row gt_right">2.3</td>
-<td headers="longfin inshore squid stub_1_1 Station mean count" class="gt_row gt_right">1,363.2</td>
-<td headers="longfin inshore squid stub_1_1 Standard error of station count" class="gt_row gt_right">180.7</td>
-<td headers="longfin inshore squid stub_1_1 Coefficient of variation of station count" class="gt_row gt_right">1.6</td></tr>
-    <tr><th id="stub_1_2" scope="row" class="gt_row gt_left gt_stub">N</th>
-<td headers="longfin inshore squid stub_1_2 Total positive stations" class="gt_row gt_right">68</td>
-<td headers="longfin inshore squid stub_1_2 Proportion positive stations" class="gt_row gt_right">0.93</td>
-<td headers="longfin inshore squid stub_1_2 Total weight (kgs)" class="gt_row gt_right">1,739</td>
-<td headers="longfin inshore squid stub_1_2 Station total count" class="gt_row gt_right">72,938.0</td>
-<td headers="longfin inshore squid stub_1_2 Station mean weight (kgs)" class="gt_row gt_right">24.5</td>
-<td headers="longfin inshore squid stub_1_2 Standard error station weight (kgs)" class="gt_row gt_right">2.1</td>
-<td headers="longfin inshore squid stub_1_2 Coefficient of variation of station weight (kgs)" class="gt_row gt_right">1.0</td>
-<td headers="longfin inshore squid stub_1_2 Station mean count" class="gt_row gt_right">1,027.3</td>
-<td headers="longfin inshore squid stub_1_2 Standard error of station count" class="gt_row gt_right">120.9</td>
-<td headers="longfin inshore squid stub_1_2 Coefficient of variation of station count" class="gt_row gt_right">1.4</td></tr>
-    <tr class="gt_group_heading_row">
-      <th colspan="11" class="gt_group_heading" scope="colgroup" id="little skate">little skate</th>
-    </tr>
-    <tr class="gt_row_group_first"><th id="stub_1_3" scope="row" class="gt_row gt_left gt_stub">Y</th>
-<td headers="little skate stub_1_3 Total positive stations" class="gt_row gt_right">64</td>
-<td headers="little skate stub_1_3 Proportion positive stations" class="gt_row gt_right">0.88</td>
-<td headers="little skate stub_1_3 Total weight (kgs)" class="gt_row gt_right">832</td>
-<td headers="little skate stub_1_3 Station total count" class="gt_row gt_right">1,710.0</td>
-<td headers="little skate stub_1_3 Station mean weight (kgs)" class="gt_row gt_right">11.7</td>
-<td headers="little skate stub_1_3 Standard error station weight (kgs)" class="gt_row gt_right">0.9</td>
-<td headers="little skate stub_1_3 Coefficient of variation of station weight (kgs)" class="gt_row gt_right">0.9</td>
-<td headers="little skate stub_1_3 Station mean count" class="gt_row gt_right">24.1</td>
-<td headers="little skate stub_1_3 Standard error of station count" class="gt_row gt_right">1.9</td>
-<td headers="little skate stub_1_3 Coefficient of variation of station count" class="gt_row gt_right">0.9</td></tr>
-    <tr><th id="stub_1_4" scope="row" class="gt_row gt_left gt_stub">N</th>
-<td headers="little skate stub_1_4 Total positive stations" class="gt_row gt_right">63</td>
-<td headers="little skate stub_1_4 Proportion positive stations" class="gt_row gt_right">0.86</td>
-<td headers="little skate stub_1_4 Total weight (kgs)" class="gt_row gt_right">910</td>
-<td headers="little skate stub_1_4 Station total count" class="gt_row gt_right">1,849.0</td>
-<td headers="little skate stub_1_4 Station mean weight (kgs)" class="gt_row gt_right">12.8</td>
-<td headers="little skate stub_1_4 Standard error station weight (kgs)" class="gt_row gt_right">1.1</td>
-<td headers="little skate stub_1_4 Coefficient of variation of station weight (kgs)" class="gt_row gt_right">1.1</td>
-<td headers="little skate stub_1_4 Station mean count" class="gt_row gt_right">26.0</td>
-<td headers="little skate stub_1_4 Standard error of station count" class="gt_row gt_right">2.4</td>
-<td headers="little skate stub_1_4 Coefficient of variation of station count" class="gt_row gt_right">1.1</td></tr>
-    <tr class="gt_group_heading_row">
-      <th colspan="11" class="gt_group_heading" scope="colgroup" id="butterfish">butterfish</th>
-    </tr>
-    <tr class="gt_row_group_first"><th id="stub_1_5" scope="row" class="gt_row gt_left gt_stub">N</th>
-<td headers="butterfish stub_1_5 Total positive stations" class="gt_row gt_right">61</td>
-<td headers="butterfish stub_1_5 Proportion positive stations" class="gt_row gt_right">0.84</td>
-<td headers="butterfish stub_1_5 Total weight (kgs)" class="gt_row gt_right">8,140</td>
-<td headers="butterfish stub_1_5 Station total count" class="gt_row gt_right">721,698.0</td>
-<td headers="butterfish stub_1_5 Station mean weight (kgs)" class="gt_row gt_right">114.6</td>
-<td headers="butterfish stub_1_5 Standard error station weight (kgs)" class="gt_row gt_right">13.9</td>
-<td headers="butterfish stub_1_5 Coefficient of variation of station weight (kgs)" class="gt_row gt_right">1.4</td>
-<td headers="butterfish stub_1_5 Station mean count" class="gt_row gt_right">10,164.8</td>
-<td headers="butterfish stub_1_5 Standard error of station count" class="gt_row gt_right">1,844.2</td>
-<td headers="butterfish stub_1_5 Coefficient of variation of station count" class="gt_row gt_right">2.2</td></tr>
-    <tr><th id="stub_1_6" scope="row" class="gt_row gt_left gt_stub">Y</th>
-<td headers="butterfish stub_1_6 Total positive stations" class="gt_row gt_right">60</td>
-<td headers="butterfish stub_1_6 Proportion positive stations" class="gt_row gt_right">0.82</td>
-<td headers="butterfish stub_1_6 Total weight (kgs)" class="gt_row gt_right">11,988</td>
-<td headers="butterfish stub_1_6 Station total count" class="gt_row gt_right">1,015,687.0</td>
-<td headers="butterfish stub_1_6 Station mean weight (kgs)" class="gt_row gt_right">168.8</td>
-<td headers="butterfish stub_1_6 Standard error station weight (kgs)" class="gt_row gt_right">29.8</td>
-<td headers="butterfish stub_1_6 Coefficient of variation of station weight (kgs)" class="gt_row gt_right">2.1</td>
-<td headers="butterfish stub_1_6 Station mean count" class="gt_row gt_right">14,305.5</td>
-<td headers="butterfish stub_1_6 Standard error of station count" class="gt_row gt_right">3,746.2</td>
-<td headers="butterfish stub_1_6 Coefficient of variation of station count" class="gt_row gt_right">3.1</td></tr>
-    <tr class="gt_group_heading_row">
-      <th colspan="11" class="gt_group_heading" scope="colgroup" id="scup">scup</th>
-    </tr>
-    <tr class="gt_row_group_first"><th id="stub_1_7" scope="row" class="gt_row gt_left gt_stub">N</th>
-<td headers="scup stub_1_7 Total positive stations" class="gt_row gt_right">53</td>
-<td headers="scup stub_1_7 Proportion positive stations" class="gt_row gt_right">0.73</td>
-<td headers="scup stub_1_7 Total weight (kgs)" class="gt_row gt_right">3,074</td>
-<td headers="scup stub_1_7 Station total count" class="gt_row gt_right">214,630.0</td>
-<td headers="scup stub_1_7 Station mean weight (kgs)" class="gt_row gt_right">43.3</td>
-<td headers="scup stub_1_7 Standard error station weight (kgs)" class="gt_row gt_right">6.1</td>
-<td headers="scup stub_1_7 Coefficient of variation of station weight (kgs)" class="gt_row gt_right">1.7</td>
-<td headers="scup stub_1_7 Station mean count" class="gt_row gt_right">3,023.0</td>
-<td headers="scup stub_1_7 Standard error of station count" class="gt_row gt_right">545.1</td>
-<td headers="scup stub_1_7 Coefficient of variation of station count" class="gt_row gt_right">2.1</td></tr>
-    <tr><th id="stub_1_8" scope="row" class="gt_row gt_left gt_stub">Y</th>
-<td headers="scup stub_1_8 Total positive stations" class="gt_row gt_right">48</td>
-<td headers="scup stub_1_8 Proportion positive stations" class="gt_row gt_right">0.66</td>
-<td headers="scup stub_1_8 Total weight (kgs)" class="gt_row gt_right">3,178</td>
-<td headers="scup stub_1_8 Station total count" class="gt_row gt_right">259,765.0</td>
-<td headers="scup stub_1_8 Station mean weight (kgs)" class="gt_row gt_right">44.8</td>
-<td headers="scup stub_1_8 Standard error station weight (kgs)" class="gt_row gt_right">5.6</td>
-<td headers="scup stub_1_8 Coefficient of variation of station weight (kgs)" class="gt_row gt_right">1.5</td>
-<td headers="scup stub_1_8 Station mean count" class="gt_row gt_right">3,658.7</td>
-<td headers="scup stub_1_8 Standard error of station count" class="gt_row gt_right">630.2</td>
-<td headers="scup stub_1_8 Coefficient of variation of station count" class="gt_row gt_right">2.1</td></tr>
-    <tr class="gt_group_heading_row">
-      <th colspan="11" class="gt_group_heading" scope="colgroup" id="winter flounder">winter flounder</th>
-    </tr>
-    <tr class="gt_row_group_first"><th id="stub_1_9" scope="row" class="gt_row gt_left gt_stub">Y</th>
-<td headers="winter flounder stub_1_9 Total positive stations" class="gt_row gt_right">47</td>
-<td headers="winter flounder stub_1_9 Proportion positive stations" class="gt_row gt_right">0.64</td>
-<td headers="winter flounder stub_1_9 Total weight (kgs)" class="gt_row gt_right">427</td>
-<td headers="winter flounder stub_1_9 Station total count" class="gt_row gt_right">2,374.0</td>
-<td headers="winter flounder stub_1_9 Station mean weight (kgs)" class="gt_row gt_right">6.0</td>
-<td headers="winter flounder stub_1_9 Standard error station weight (kgs)" class="gt_row gt_right">0.8</td>
-<td headers="winter flounder stub_1_9 Coefficient of variation of station weight (kgs)" class="gt_row gt_right">1.6</td>
-<td headers="winter flounder stub_1_9 Station mean count" class="gt_row gt_right">33.4</td>
-<td headers="winter flounder stub_1_9 Standard error of station count" class="gt_row gt_right">4.4</td>
-<td headers="winter flounder stub_1_9 Coefficient of variation of station count" class="gt_row gt_right">1.6</td></tr>
-    <tr><th id="stub_1_10" scope="row" class="gt_row gt_left gt_stub">N</th>
-<td headers="winter flounder stub_1_10 Total positive stations" class="gt_row gt_right">43</td>
-<td headers="winter flounder stub_1_10 Proportion positive stations" class="gt_row gt_right">0.59</td>
-<td headers="winter flounder stub_1_10 Total weight (kgs)" class="gt_row gt_right">413</td>
-<td headers="winter flounder stub_1_10 Station total count" class="gt_row gt_right">2,303.0</td>
-<td headers="winter flounder stub_1_10 Station mean weight (kgs)" class="gt_row gt_right">5.8</td>
-<td headers="winter flounder stub_1_10 Standard error station weight (kgs)" class="gt_row gt_right">0.8</td>
-<td headers="winter flounder stub_1_10 Coefficient of variation of station weight (kgs)" class="gt_row gt_right">1.6</td>
-<td headers="winter flounder stub_1_10 Station mean count" class="gt_row gt_right">32.4</td>
-<td headers="winter flounder stub_1_10 Standard error of station count" class="gt_row gt_right">3.9</td>
-<td headers="winter flounder stub_1_10 Coefficient of variation of station count" class="gt_row gt_right">1.4</td></tr>
-    <tr class="gt_group_heading_row">
-      <th colspan="11" class="gt_group_heading" scope="colgroup" id="silver hake">silver hake</th>
-    </tr>
-    <tr class="gt_row_group_first"><th id="stub_1_11" scope="row" class="gt_row gt_left gt_stub">Y</th>
-<td headers="silver hake stub_1_11 Total positive stations" class="gt_row gt_right">38</td>
-<td headers="silver hake stub_1_11 Proportion positive stations" class="gt_row gt_right">0.52</td>
-<td headers="silver hake stub_1_11 Total weight (kgs)" class="gt_row gt_right">548</td>
-<td headers="silver hake stub_1_11 Station total count" class="gt_row gt_right">6,921.0</td>
-<td headers="silver hake stub_1_11 Station mean weight (kgs)" class="gt_row gt_right">7.7</td>
-<td headers="silver hake stub_1_11 Standard error station weight (kgs)" class="gt_row gt_right">1.9</td>
-<td headers="silver hake stub_1_11 Coefficient of variation of station weight (kgs)" class="gt_row gt_right">2.9</td>
-<td headers="silver hake stub_1_11 Station mean count" class="gt_row gt_right">97.5</td>
-<td headers="silver hake stub_1_11 Standard error of station count" class="gt_row gt_right">23.7</td>
-<td headers="silver hake stub_1_11 Coefficient of variation of station count" class="gt_row gt_right">2.9</td></tr>
-    <tr><th id="stub_1_12" scope="row" class="gt_row gt_left gt_stub">N</th>
-<td headers="silver hake stub_1_12 Total positive stations" class="gt_row gt_right">37</td>
-<td headers="silver hake stub_1_12 Proportion positive stations" class="gt_row gt_right">0.51</td>
-<td headers="silver hake stub_1_12 Total weight (kgs)" class="gt_row gt_right">600</td>
-<td headers="silver hake stub_1_12 Station total count" class="gt_row gt_right">7,288.0</td>
-<td headers="silver hake stub_1_12 Station mean weight (kgs)" class="gt_row gt_right">8.4</td>
-<td headers="silver hake stub_1_12 Standard error station weight (kgs)" class="gt_row gt_right">1.4</td>
-<td headers="silver hake stub_1_12 Coefficient of variation of station weight (kgs)" class="gt_row gt_right">2.0</td>
-<td headers="silver hake stub_1_12 Station mean count" class="gt_row gt_right">102.6</td>
-<td headers="silver hake stub_1_12 Standard error of station count" class="gt_row gt_right">16.2</td>
-<td headers="silver hake stub_1_12 Coefficient of variation of station count" class="gt_row gt_right">1.9</td></tr>
-    <tr class="gt_group_heading_row">
-      <th colspan="11" class="gt_group_heading" scope="colgroup" id="red hake">red hake</th>
-    </tr>
-    <tr class="gt_row_group_first"><th id="stub_1_13" scope="row" class="gt_row gt_left gt_stub">N</th>
-<td headers="red hake stub_1_13 Total positive stations" class="gt_row gt_right">28</td>
-<td headers="red hake stub_1_13 Proportion positive stations" class="gt_row gt_right">0.38</td>
-<td headers="red hake stub_1_13 Total weight (kgs)" class="gt_row gt_right">168</td>
-<td headers="red hake stub_1_13 Station total count" class="gt_row gt_right">1,206.0</td>
-<td headers="red hake stub_1_13 Station mean weight (kgs)" class="gt_row gt_right">2.4</td>
-<td headers="red hake stub_1_13 Standard error station weight (kgs)" class="gt_row gt_right">0.4</td>
-<td headers="red hake stub_1_13 Coefficient of variation of station weight (kgs)" class="gt_row gt_right">2.0</td>
-<td headers="red hake stub_1_13 Station mean count" class="gt_row gt_right">17.0</td>
-<td headers="red hake stub_1_13 Standard error of station count" class="gt_row gt_right">3.1</td>
-<td headers="red hake stub_1_13 Coefficient of variation of station count" class="gt_row gt_right">2.2</td></tr>
-    <tr><th id="stub_1_14" scope="row" class="gt_row gt_left gt_stub">Y</th>
-<td headers="red hake stub_1_14 Total positive stations" class="gt_row gt_right">28</td>
-<td headers="red hake stub_1_14 Proportion positive stations" class="gt_row gt_right">0.38</td>
-<td headers="red hake stub_1_14 Total weight (kgs)" class="gt_row gt_right">214</td>
-<td headers="red hake stub_1_14 Station total count" class="gt_row gt_right">1,609.0</td>
-<td headers="red hake stub_1_14 Station mean weight (kgs)" class="gt_row gt_right">3.0</td>
-<td headers="red hake stub_1_14 Standard error station weight (kgs)" class="gt_row gt_right">0.7</td>
-<td headers="red hake stub_1_14 Coefficient of variation of station weight (kgs)" class="gt_row gt_right">2.6</td>
-<td headers="red hake stub_1_14 Station mean count" class="gt_row gt_right">22.7</td>
-<td headers="red hake stub_1_14 Standard error of station count" class="gt_row gt_right">5.8</td>
-<td headers="red hake stub_1_14 Coefficient of variation of station count" class="gt_row gt_right">3.0</td></tr>
-  </tbody>
-  
-  
-</table>
-</div>
 
 # More catch composition stats
 
-Also making station summary tables
+Also making station summary tables.
 
 ``` r
 #Looking at the number of number of paired positives
@@ -1573,7 +966,7 @@ Catch %>% as.tibble() %>%
 # Aggregate weight model analysis
 
 This is just one way to explore how well the values from paired stations
-align. We’re log 10 + constant transforming the data then fitting a
+align. We’re log 10 + constant (1) transforming the data then fitting a
 simple model to the data. Values on the x axis are catches without the
 restrictor and values on the y are catches with the restrictor. The
 plots aren’t exactly what the model is showing, but they are similar.
@@ -1605,16 +998,16 @@ model_1 <- gam(Y ~ s(N)+ s(N,COMMON,bs='sz'),
 model_2 <- gam(Y ~ s(N)+ s(N, by = COMMON), 
                data = mod_data, method='REML')
 
-compare_performance(model_0,model_1,model_2,rank=TRUE)
+compare_performance(model_0,model_1,model_2,rank=TRUE,metrics = c('R2','RMSE','AIC weights'))
 ```
 
     ## # Comparison of Model Performance Indices
     ## 
-    ## Name    | Model |    R2 |  RMSE | Sigma | AIC weights | AICc weights | BIC weights | Performance-Score
-    ## ------------------------------------------------------------------------------------------------------
-    ## model_2 |   gam | 0.837 | 0.289 | 0.312 |       0.791 |        0.876 |    1.19e-07 |            63.31%
-    ## model_1 |   gam | 0.838 | 0.286 | 0.308 |       0.209 |        0.124 |    2.25e-14 |            56.76%
-    ## model_0 |   gam | 0.819 | 0.308 | 0.311 |    2.44e-07 |     5.26e-07 |       1.000 |            23.77%
+    ## Name    | Model |    R2 |  RMSE | Performance-Score
+    ## ---------------------------------------------------
+    ## model_1 |   gam | 0.838 | 0.286 |           100.00%
+    ## model_2 |   gam | 0.837 | 0.289 |            89.92%
+    ## model_0 |   gam | 0.819 | 0.308 |             0.00%
 
 ``` r
 AIC(model_1)
@@ -1682,7 +1075,7 @@ new_data_6 <-mod_data %>% filter(COMMON == unique(mod_data$COMMON)[6])
 new_data_7 <-mod_data %>% filter(COMMON == unique(mod_data$COMMON)[7])
 
 new_data <- bind_rows(new_data_1,new_data_2,new_data_3,new_data_4,new_data_5,new_data_6,new_data_7)
-m1_pred <- fitted_values(model_1, data = new_data, scale = "response")
+m1_pred <- fitted_values(model_2, data = new_data, scale = "response")
 
 p <- ggplot(m1_pred, aes(x = 10^N, y = 10^fitted,
                     colour = COMMON,group=COMMON)) +
@@ -1777,8 +1170,7 @@ model_tab <- tibble(
 # Exploring the individual data
 
 Looking at density plots for each of the focus species. The expansion of
-counts happens using the ‘uncount’ function in dplyr. Definitely curious
-if that makes sense!
+counts happens using the ‘uncount’ function in dplyr.
 
 ``` r
 #Making long data for plotting with ggplot
@@ -1820,7 +1212,7 @@ mirrored_lengths
 
 Fitting a regular GLM to the individual data to determine if a binomial
 model is appropriate (i.e., ‘Dispersion parameter for binomial family
-taken to be 1’)
+taken to be 1’).
 
 ``` r
 #Making wide format data for fitting binomial model
@@ -1937,7 +1329,7 @@ print(paste("Dispersion parameter is:", model.disp.test$dispersion))
 ## Fitting length-based GAMM models
 
 Here we’re interested in if there are significant effects of the
-covariates and how large the effects are
+covariates and how large the effects are.
 
 ``` r
 #Fitting basic binomial GAM models then adding in random intercepts for the station pair and a random slope for each station pair
@@ -1977,11 +1369,12 @@ length_mod_bi_3 <- gam(PROP ~ s(LENGTH_CM) + s(LENGTH_CM,COMMON,bs='sz') +
 
 # Comparing model fits
 
-Making plots for the models fit to individual catch data
+Making plots of model predictions for the best model fit to individual
+catch data.
 
 ``` r
 #Comparing model fit
-compare_performance(length_mod_bi_0,length_mod_bi_1,length_mod_bi_2,length_mod_bi_3,metrics = c('R2','RMSE'),rank=TRUE)
+compare_performance(length_mod_bi_0,length_mod_bi_1,length_mod_bi_2,length_mod_bi_3,metrics ='common',rank=TRUE)
 ```
 
     ## # Comparison of Model Performance Indices
@@ -2773,6 +2166,8 @@ plot(length_mod_bi_2a.emmeans, show_data=T) +
 
 # Looking at gear metrics
 
+These are derived from the Darana’s simrad net mesuration system.
+
 ``` r
 library(patchwork)
 #Revised gear plots
@@ -2853,6 +2248,8 @@ gear_metrics_plot
 ![](figs/unnamed-chunk-17-1.png)<!-- -->
 
 # Plotting out products from the script
+
+Uncomment to run code associated with each MS component.
 
 ``` r
 # #Figure 1

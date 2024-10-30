@@ -8,8 +8,8 @@ Analysis of data collected by NTAP field work on the F/V Darana R in Spring 2022
 
 ## Repository contents
 
-1. Developed script to import data from MS Access database [knit .Rmd](https://github.com/AJONES8/PEMAD_CRB_NTAP_RESTRICTOR_ROPE_EXP/blob/main/FMRD_CRB_NTAP_Restrictor_Rev_Oct_v1.md)
-2. Figures associated with a draft manuscript
+1. Script to import data from MS Access database and perform analysis [knit .Rmd](https://github.com/AJONES8/PEMAD_CRB_NTAP_RESTRICTOR_ROPE_EXP/blob/main/FMRD_CRB_NTAP_Restrictor_Rev_Oct_v1.md)
+2. Figures associated with the draft manuscript of experimental results.
 
 
 ---
