@@ -704,7 +704,7 @@ new_data_6 <-mod_data %>% filter(COMMON == unique(mod_data$COMMON)[6])
 new_data_7 <-mod_data %>% filter(COMMON == unique(mod_data$COMMON)[7])
 
 new_data <- bind_rows(new_data_1,new_data_2,new_data_3,new_data_4,new_data_5,new_data_6,new_data_7)
-m1_pred <- fitted_values(model_2, data = new_data, scale = "response")
+m1_pred <- fitted_values(model_1, data = new_data, scale = "response")
 
 p <- ggplot(m1_pred, aes(x = 10^N, y = 10^fitted,
                     colour = COMMON,group=COMMON)) +
