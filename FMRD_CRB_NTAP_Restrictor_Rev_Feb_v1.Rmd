@@ -1,0 +1,1279 @@
+---
+title: "Northeast Trawl Advisory Panel 2022 Restrictor Rope Experiment"
+output: 
+  github_document:
+editor_options: 
+  chunk_output_type: console
+---
+
+# Loading data setting options
+
+Here I'm connecting to the MS Access database file.
+
+```{r message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(fig.path='figs/',echo=TRUE, warning=FALSE, messages=FALSE, results = TRUE, dpi=500)
+# Set specs for knitting to a github_document
+
+## Import RODBC package (and others)
+library(RODBC)
+library(tidyverse)
+library(lubridate)
+
+## Set up driver info and database path
+DRIVERINFO <- "Driver={Microsoft Access Driver (*.mdb, *.accdb)};"
+#THIS PATH WILL NEED TO BE CHANGED
+MDBPATH <- "data/NEAMAP_Restrictor_Exp.mdb"
+PATH <- paste0(DRIVERINFO, "DBQ=", MDBPATH)
+
+## Establish connection
+channel <- odbcDriverConnect(PATH)
+
+##Look at tables
+tbls <- sqlTables(channel)
+tbls %>% filter(TABLE_TYPE=='TABLE') %>% dplyr::select(TABLE_NAME)
+
+## Load data into R dataframe
+Catch <- sqlQuery(channel,
+"SELECT *
+FROM catch;",
+stringsAsFactors = FALSE)
+
+## Load data into R dataframe (different function)
+StationNew <- sqlFetch(channel, 'StationNew')
+Station <- sqlFetch(channel, 'Station')
+SpCodes  <- sqlFetch(channel, 'SpCodes')
+Comments  <- sqlFetch(channel, 'Comments')
+CommentsNew  <- sqlFetch(channel, 'CommentsNew')
+Individual <- sqlFetch(channel, 'Individual')
+Pan <- sqlFetch(channel, 'Pan')
+PanNew <- sqlFetch(channel, 'PanNew')
+
+Weather <- sqlFetch(channel, 'Weather')
+WQ <- sqlFetch(channel, 'WQ')
+
+## Close and remove channel
+# close(channel)
+# rm(channel)
+
+#Pulling in the species table from excel
+#THIS PATH WILL NEED TO BE CHANGED
+library(readxl)
+NM_Species_Code_List_Color_Coordinated <- read_excel("data/NM Species Code List Color Coordinated.xls") %>% mutate(SPCODE=as.character(as.numeric(SPCODE)))
+  
+```
+
+# A species subset
+
+This is one way to subset the species. Summarizing the largest counts and weights and then making a vector of the species on both lists.
+
+```{r message=FALSE, warning=FALSE}
+#making a vector of common species
+common_spp_wt <- Catch %>% dplyr::group_by(VIMSCODE) %>% dplyr::summarise(TotWght=sum(TotWght)) %>% dplyr::arrange(-TotWght) %>% head(15) %>% .$VIMSCODE
+common_spp_ct <- Catch %>% dplyr::group_by(VIMSCODE) %>% dplyr::summarise(COUNT=sum(COUNT)) %>% dplyr::arrange(-COUNT) %>% head(15) %>% .$VIMSCODE
+
+common_spp <- intersect(common_spp_wt,common_spp_ct)
+#common_spp
+
+#Looking at common names of these species
+NM_Species_Code_List_Color_Coordinated %>% filter(SPCODE %in%  common_spp) %>% print()
+
+
+Catch %>% dplyr::group_by(VIMSCODE) %>% dplyr::summarise(N_STATIONS=n_distinct(STATION)) %>% dplyr::arrange(-N_STATIONS)
+
+library(patchwork)
+#Making a plot of the numbers weights
+a <- Catch %>% dplyr::group_by(VIMSCODE) %>% dplyr::summarise(AvgTotWght=mean(TotWght),TotWght=sum(TotWght)) %>% dplyr::arrange(-TotWght) %>% left_join(.,
+          Catch %>% dplyr::group_by(VIMSCODE) %>% dplyr::summarise(AvgTotCOUNT=mean(COUNT),COUNT=sum(COUNT)) %>% dplyr::arrange(-COUNT)) %>%
+  left_join(.,Catch %>% dplyr::group_by(VIMSCODE) %>% dplyr::summarise(N_STATIONS=n_distinct(STATION)) %>% dplyr::arrange(-N_STATIONS)) %>%
+  left_join(.,NM_Species_Code_List_Color_Coordinated %>% mutate(VIMSCODE=as.numeric(SPCODE)) %>%
+              dplyr::select(VIMSCODE,COMMON),by=('VIMSCODE')) %>%
+    mutate(PER_STAT = round(1-N_STATIONS/max(N_STATIONS+1),2)) %>% arrange(PER_STAT) %>%
+  head(35) %>%
+  pivot_longer(names_to = 'metric',values_to = 'value',-COMMON) %>%
+  filter(metric != 'VIMSCODE') %>%
+  mutate(COMMON = fct_reorder(COMMON, value)) %>%
+  ggplot() + geom_bar(aes(x=COMMON,y=value),stat='identity') + facet_wrap(~metric,scales='free') + coord_flip() + scale_y_log10()
+
+b <- Catch %>% dplyr::group_by(VIMSCODE) %>% dplyr::summarise(TotWght=sum(TotWght)) %>% dplyr::arrange(-TotWght) %>% left_join(.,
+          Catch %>% dplyr::group_by(VIMSCODE) %>% dplyr::summarise(COUNT=sum(COUNT)) %>% dplyr::arrange(-COUNT)) %>%
+  left_join(.,Catch %>% dplyr::group_by(VIMSCODE) %>% dplyr::summarise(N_STATIONS=n_distinct(STATION)) %>% dplyr::arrange(-N_STATIONS)) %>%
+  left_join(.,NM_Species_Code_List_Color_Coordinated %>% mutate(VIMSCODE=as.numeric(SPCODE)) %>%
+              dplyr::select(VIMSCODE,COMMON),by=('VIMSCODE')) %>%
+  pivot_longer(names_to = 'metric',values_to = 'value',-COMMON) %>%
+  filter(metric != 'VIMSCODE') %>%
+  mutate(COMMON = fct_reorder(COMMON, value)) %>%
+  head(35) %>%
+  filter(metric == 'COUNT',!COMMON %in% c('butterfish','scup','longfin inshore squid','Atlantic menhaden','silver hake')) %>%
+  ggplot() + geom_bar(aes(x=COMMON,y=value),stat='identity') + facet_wrap(~metric,scales='free') + coord_flip()
+
+
+c <- Catch %>%
+  left_join(.,Catch %>% dplyr::group_by(VIMSCODE) %>% dplyr::summarise(N_STATIONS=n_distinct(STATION)) %>% dplyr::arrange(-N_STATIONS)) %>%
+  left_join(.,NM_Species_Code_List_Color_Coordinated %>% mutate(VIMSCODE=as.numeric(SPCODE)) %>%
+              dplyr::select(VIMSCODE,COMMON),by=('VIMSCODE')) %>%
+  #head(35) %>%
+  filter(!VIMSCODE %in%  c(1,4,1028)) %>%
+  ggplot() + geom_boxplot(data= . %>% filter(COMMON != 'Other'),aes(x=fct_lump(fct_reorder(COMMON,COUNT),15),y=COUNT)) + coord_flip() + scale_y_log10()
+
+d <- Catch %>%
+  left_join(.,Catch %>% dplyr::group_by(VIMSCODE) %>% dplyr::summarise(N_STATIONS=n_distinct(STATION)) %>% dplyr::arrange(-N_STATIONS)) %>%
+  left_join(.,NM_Species_Code_List_Color_Coordinated %>% mutate(VIMSCODE=as.numeric(SPCODE)) %>%
+              dplyr::select(VIMSCODE,COMMON),by=('VIMSCODE')) %>%
+  #head(35) %>%
+  filter(!VIMSCODE %in%  c(1,4,1028)) %>%
+  ggplot() + geom_boxplot(data= . %>% filter(COMMON != 'Other'),aes(x=fct_lump(fct_reorder(COMMON,TotWght),15),y=TotWght)) + coord_flip() + scale_y_log10()
+
+
+```
+
+# Ordination of stations
+
+We're using the lat 4 digits of the station code to plot out the catches in space. The species values are shown in red to highlight the specific catch elements that are driving patterns. I was thinking about this as maybe a way to double check for stations or pairs of stations that are outliers (0424 and 9424 for example). Right now it's just on the ~20 species we identify above.
+
+```{r fig.height=7, fig.width=12, message=FALSE, warning=FALSE}
+library(vegan)
+library(ggvegan)
+library(ggrepel)
+#Looking at catch data weight
+catch_ord <- Catch %>% as.tibble() %>% 
+  filter(VIMSCODE %in%  common_spp_wt) %>% #COMMENT OUT TO DO ON FULL SET OF SPECIES
+  inner_join(.,Station) %>% mutate(STATION=str_sub(STATION,-4)) %>%
+  mutate(SEASON=case_when(month(DATE) < 7 ~ 'S',TRUE~'F')) %>%
+  mutate(STATION=paste(SEASON,STATION,sep='')) %>%
+  group_by(VIMSCODE,Restrictor,STATION) %>% summarise(TotWght=sqrt(sum(TotWght))) %>% 
+  pivot_wider(names_from = c(VIMSCODE),values_from = TotWght,values_fill = 0) %>% as_tibble()
+
+catch_mds <- metaMDS(catch_ord %>% dplyr::select(-Restrictor,-STATION), distance = "bray", autotransform = TRUE,tidy=TRUE)
+
+# test_set <- fortify(catch_mds) %>% filter(Score == 'sites') %>% cbind(.,catch_ord$STATION) %>% dplyr::rename(STATION=`catch_ord$STATION`) %>%
+#   mutate(Restrictor=str_sub(STATION,1,1)) %>%
+#   mutate(PAIR=str_sub(STATION,-3)) %>%
+#   filter(abs(NMDS1) < 1.5 &  abs(NMDS2) < 1) %>% 
+#   count(PAIR) %>%
+#   filter(n == 2) %>% .$PAIR
+
+#making some plots
+library(patchwork)
+library(ggthemes)
+a <- fortify(catch_mds) %>% filter(score == 'sites') %>% 
+     cbind(.,catch_ord$STATION) %>% dplyr::rename(STATION=`catch_ord$STATION`) %>%
+     mutate(Restrictor=str_sub(STATION,2,2)) %>%
+     mutate(PAIR=str_sub(STATION,-3)) %>%
+     #filter(PAIR %in% test_set) %>%
+     ggplot(aes(x=NMDS1,y=NMDS2)) + geom_point() +
+            geom_label_repel(aes(label=STATION)) + 
+            theme(legend.position = 'None')
+
+b <- fortify(catch_mds) %>% filter(score != 'sites') %>% 
+     left_join(.,NM_Species_Code_List_Color_Coordinated %>% 
+                  #mutate(SPCODE=as.character(as.numeric(SPCODE))) %>% 
+                  dplyr::select(VIMSCODE=SPCODE,COMMON), by = c('label'='VIMSCODE')) %>% 
+     ggplot() +
+            geom_segment(aes(x=0,xend=NMDS1,y=0,yend=NMDS2),colour='Red',alpha=0.5) +
+            geom_label(aes(x=NMDS1,y=NMDS2,label=COMMON),colour='Red')
+
+a + b
+
+#Season
+s <- fortify(catch_mds) %>% filter(score == 'sites') %>% 
+     cbind(.,catch_ord$STATION) %>% dplyr::rename(STATION=`catch_ord$STATION`) %>%
+     mutate(Season=str_sub(STATION,1,1)) %>%
+     mutate(PAIR=str_sub(STATION,-3)) %>%
+     #filter(PAIR %in% test_set) %>%
+      mutate(Season = case_when(Season == 'F' ~ 'Fall',TRUE ~ 'Spring')) %>%
+      mutate(Season = factor(Season,levels = c("Spring", "Fall"))) %>%
+     ggplot(aes(x=NMDS1,y=NMDS2,colour=Season)) + geom_point() +
+            #geom_label_repel(aes(label=STATION)) + 
+            #theme(legend.position = 'None') + 
+            theme(legend.position='top', 
+            legend.justification='left',
+            legend.direction='horizontal') +
+            scale_color_viridis_d()
+
+#Restrictor
+r <- fortify(catch_mds) %>% filter(score == 'sites') %>% 
+     cbind(.,catch_ord$STATION) %>% dplyr::rename(STATION=`catch_ord$STATION`) %>%
+     mutate(Restrictor=str_sub(STATION,2,2)) %>%
+     mutate(PAIR=str_sub(STATION,-3)) %>%
+     #filter(PAIR %in% test_set) %>%
+     mutate(Restrictor = case_when(Restrictor == '9' ~ 'Yes',TRUE ~ 'No')) %>%
+     ggplot(aes(x=NMDS1,y=NMDS2,colour=Restrictor)) + geom_point() +
+            #geom_label_repel(aes(label=STATION)) + 
+            scale_color_tableau() + 
+            theme(legend.position='top', 
+            legend.justification='left',
+            legend.direction='horizontal')
+
+
+catch_ordination <- s + r
+
+catch_ordination
+
+```
+
+# Making a map of the sampling sites
+
+A map of the experimental tow locations.
+
+```{r fig.height=9, fig.width=9}
+#Making a quick map of stations
+
+#Library loading
+library(tidyverse)
+library(marmap)
+#for loading the raster library
+library(pals)
+library(ggthemes)
+library(ggnewscale)
+library(sf)
+library(ggspatial)
+
+#Read in shapefiles
+US.areas <- st_read("C:/Users/andrew.jones/Documents/Data/shapefiles","USA")
+canada.areas <-st_read("C:/Users/andrew.jones/Documents/Data/shapefiles","Canada")
+
+
+atl <- marmap::getNOAA.bathy(-72,-70, 41, 42,resolution=1)
+#atl <- read.bathy("./bathydata/marmap_coord_-80_33_-66_46_res_1.csv",header = TRUE)
+atl = fortify.bathy(atl)
+
+library(inlabru)
+
+
+#Setting the map boundary
+lons = c(min(Station$LONGITUDE_START)-0.1, max(Station$LONGITUDE_START)+0.1)
+lats = c(min(Station$LATITUDE_START)-0.1, max(Station$LATITUDE_START)+0.1)
+
+
+#Making a function to bin the catches
+label_interval <- function(breaks) {
+  paste0("(", breaks[1:length(breaks) - 1], "-", breaks[2:length(breaks)], ")")
+}
+
+
+  
+# Select for start geometries and convert to sf object
+pnts_start <- Station %>% st_as_sf( coords = c("LONGITUDE_START", "LATITUDE_START"), crs =  4326)
+
+# Select for end geometries and convert to sf object
+pnts_end <- Station %>% st_as_sf(coords = c("LONGITUDE_END", "LATITUDE_END"), crs =  4326)
+
+# Combine start and end geometries
+cbind(pnts_start,pnts_end) -> points_ready 
+
+# Generate line segments via union of paired geometries
+line_segments <- as.data.frame(st_sfc(mapply(function(a,b){st_cast(st_union(a,b),"LINESTRING")}, points_ready$geometry, points_ready$geometry.1, SIMPLIFY=FALSE)))
+
+
+line_segments <- cbind(line_segments,Station) %>% mutate(PAIR=str_sub(STATION,-3)) %>%
+                            mutate(SEASON=case_when(month(DATE) < 7 ~ 'Spring',TRUE~'Fall')) %>%
+                            mutate(PAIR=paste(SEASON,PAIR,sep='')) 
+
+line_segments$SEASON <- factor(line_segments$SEASON,
+                levels = c("Spring", "Fall"))
+
+line_segments <- line_segments %>% st_as_sf(crs = 4326)
+
+my_depths <- c(0,10,20,30,40,50,60)
+  
+sampling_map <- ggplot() + 
+  #First bathymetry
+  geom_contour_filled(data=atl,
+                aes(x=x,y=y,z=-1*z),
+                breaks=c(-50,10,20,30,40,50,60),
+                size=c(0.1),alpha=0.75) +
+  coord_map() +
+  scale_fill_manual(values = brewer.blues(10)[5:10],name=paste("Depth (m)"),labels = label_interval(my_depths)) +
+  theme(legend.position = 'bottom', legend.box="vertical", legend.margin=margin()) +
+  guides(fill=guide_legend(nrow=2)) +
+  theme(legend.key.width=unit(0.25, "cm")) +
+  new_scale_fill() +
+  #The US
+  geom_sf(data=US.areas %>% st_as_sf() %>% st_transform(., 4326)) +
+  geom_sf(data = line_segments, aes(colour=SEASON), size=1.5) +
+  coord_sf(xlim = lons, ylim = lats, crs="+proj=longlat +datum=WGS84") +
+  theme_map() +
+  #theme(legend.position = 'bottom', legend.box="horizontal", legend.margin=margin()) +
+  theme(legend.position = c(1, 0), legend.justification = c(1, 0),
+        legend.spacing.y = unit(0.2, "mm"), 
+        #panel.border = element_rect(colour = "black", fill=NA),
+        #aspect.ratio = 1, 
+        axis.text = element_text(colour = 1, size = 14),
+        legend.background = element_rect(colour = 'White',fill='White'),
+        legend.box.background = element_rect(colour = 'White',fill='White')
+        ) +
+  theme(legend.key.width=unit(0.25, "cm"),legend.text=element_text(size=8)) +
+  scale_colour_viridis_d() +
+  #scale_color_manual(values = 'Midnight blue') +
+  guides(fill=guide_legend(nrow=2),color=guide_legend(nrow=1),size=guide_legend(nrow=2)) +
+  annotation_scale(location = "tl", width_hint = 0.3) +
+    annotation_north_arrow(location = "tl", which_north = "true", 
+        pad_x = unit(0.75, "in"), pad_y = unit(0.5, "in"),
+        style = north_arrow_fancy_orienteering) +
+  labs(colour='Season')
+
+lons2 <- c(-80,-67)
+lats2 <- c(30, 47)
+
+inset_map <- ggplotGrob(
+        ggplot() +
+        geom_polygon(data = map_data("world"),
+                     aes(x = long, y = lat, group = group),
+                     fill = "#b2b2b2", color = "black", size = 0.3) +
+        geom_rect(aes(xmin = lons[1], ymin = lats[1], xmax = lons[2], ymax = lats[2]),
+                   color = "red", size = 1, fill = NA) +
+        coord_map("lambert") +
+        theme_map() +
+        theme(panel.background = element_rect(fill = NULL)) +
+        coord_sf(xlim = lons2, ylim = lats2)
+      )     
+
+sampling_map_2 <- sampling_map +
+      annotation_custom(grob = inset_map, xmin = -71.1, xmax = -70.8,
+                        ymin = 41.42, ymax = 41.56)
+
+```
+
+# Adding the solar zenith info
+
+This is coming from an R package astrocalc4r. Interest in light levels and their impact on catch was of interest from NTAP members.
+
+```{r}
+library(fishmethods)
+
+zen_data <- Station %>% as_tibble() %>% mutate(hour=hour(TowBegin),day=day(TowBegin),month=month(TowBegin),year=year(TowBegin),timezone = -5)
+
+station_zen_data <- zen_data %>% cbind(.,astrocalc4r(hour=zen_data$hour,day=zen_data$day,month=zen_data$month,
+            year=zen_data$year,timezone = zen_data$timezone,
+            lat = zen_data$LATITUDE_END,lon = zen_data$LONGITUDE_END,
+            withinput = FALSE, seaorland = "maritime", acknowledgment = FALSE))
+
+station_zen_data %>% dplyr::select(month,zenith,hour) %>% ggplot(aes(x=hour,y=zenith,colour=month)) + geom_point()
+
+
+pair_zen_data <- station_zen_data %>% 
+                    mutate(PAIR=str_sub(STATION,-3)) %>%
+                        mutate(SEASON=case_when(month(DATE) < 7 ~ 'S',TRUE~'F')) %>%
+                        mutate(PAIR=paste(SEASON,PAIR,sep='')) %>%
+                        group_by(PAIR,DATE) %>% summarise(zenith=mean(zenith)) %>%
+                        mutate(DATE=as.POSIXct(DATE,format = '%Y-%M-%D')) %>%
+                        mutate(SEASON=case_when(month(DATE) < 7 ~ 'Spring',TRUE~'Fall'))
+  
+```
+
+# Looking at the distance between tows
+
+The goal was to make tows as close together as feasible to make the data set similar to previous twin trawl based NTAP experiments. The few tows pairs that were farther apart are identified as well.
+
+```{r}
+#Looking at the distance between tows
+restric_y <- line_segments %>% select(STATION,DATE,geometry,Restrictor) %>% mutate(PAIR=str_sub(STATION,-3)) %>% 
+        mutate(SEASON=case_when(month(DATE) < 7 ~ 'S',TRUE~'F')) %>% mutate(PAIR=paste(SEASON,PAIR,sep='')) %>%
+        dplyr::select(PAIR,Restrictor,geometry) %>% filter(Restrictor == 'Y') %>% rename(geometry_y = geometry)
+
+restric_n <- line_segments %>% select(STATION,DATE,geometry,Restrictor) %>% mutate(PAIR=str_sub(STATION,-3)) %>% 
+        mutate(SEASON=case_when(month(DATE) < 7 ~ 'S',TRUE~'F')) %>% mutate(PAIR=paste(SEASON,PAIR,sep='')) %>%
+        dplyr::select(PAIR,Restrictor,geometry) %>% filter(Restrictor != 'Y') %>% rename(geometry_n = geometry)
+
+
+#ggplot(data=restric_n,aes(x=as.numeric(str_sub(restric_y$PAIR,2,4)),y=as.numeric(str_sub(restric_n$PAIR,2,4)))) + geom_point()
+
+#Looking at the tows
+num <- 8
+
+ggplot() +
+  geom_sf(data=restric_y$geometry_y) +
+  geom_sf(data=restric_n$geometry_n,colour='red')
+
+#1/4 mile is 400 meters
+
+st_distance(restric_y$geometry_y[num],restric_n$geometry_n[num])
+
+#Mean distance
+dist <- st_distance(restric_y$geometry_y,restric_n$geometry_n,by_element = FALSE) %>% diag() %>% cbind(.,as.character(str_sub(restric_y$PAIR,1,4))) %>% as.data.frame() 
+
+colnames(dist) <- c("Dist. (m)", "PAIR")
+
+#Min distance (number crossing)
+dist <- st_distance(restric_y$geometry_y,restric_n$geometry_n,by_element = FALSE) %>% diag() %>% as.numeric() %>% as_tibble() %>% cbind(.,as.character(str_sub(restric_y$PAIR,1,4))) %>% as.tibble()
+
+colnames(dist) <- c("Dist. (m)", "PAIR")
+
+dist %>% 
+  ggplot(aes(x=`Dist. (m)`)) + geom_histogram() + geom_vline(xintercept = 400)
+
+#Looking at which PAIR was far apart
+dist %>% filter(`Dist. (m)` > 400)
+
+#Looking at crossing tows
+crossing <- dist %>% filter(`Dist. (m)` == 0) %>% .$PAIR
+length(crossing)
+
+```
+
+# Adding in the current direction relative to the tow
+
+As reported by the survey crew.
+
+```{r}
+#Looking current direction in pair
+
+#Codes from Dustin's email
+current_codes <- tribble(
+~TOW_DIRECTION_CURRENT, ~CURR_DESC,
+'1', 'Fair Tide',
+'2', 'Head Tide',
+'3', 'Perpendicular',
+'4', 'Oblique-Fair',
+'5', 'Oblique-Head',
+'6', 'Slack')
+
+station_pair_current <- Station %>% mutate(PAIR=str_sub(STATION,-3)) %>%
+                            mutate(SEASON=case_when(month(DATE) < 7 ~ 'S',TRUE~'F')) %>%
+                            mutate(PAIR=paste(SEASON,PAIR,sep='')) %>%
+                            dplyr::select(Restrictor,PAIR,TOW_DIRECTION_CURRENT) %>%
+                            left_join(.,current_codes) %>%
+                            dplyr::select(-TOW_DIRECTION_CURRENT) %>%
+                            pivot_wider(names_from = Restrictor,values_from = CURR_DESC) %>%
+                            mutate(CURRENT=paste(N,'->',Y)) %>%
+                            dplyr::select(PAIR,CURRENT) %>%
+                            mutate(CURRENT_DIF = case_when(
+                                      CURRENT == 'Head Tide -> Head Tide' ~ 'SAME',
+                                      CURRENT == 'Perpendicular -> Perpendicular' ~ 'SAME',
+                                      CURRENT == 'Fair Tide -> Fair Tide' ~ 'SAME', 
+                                      TRUE ~ 'DIFFERENT'
+                            ))
+
+#Looking at how prevalent each of these was
+station_pair_current %>% group_by(CURRENT,CURRENT_DIF) %>% tally() %>% arrange(-n)
+
+```
+
+# Assembling Aggregate Weight Data
+
+Putting the catch data together. Comparing weight estimates accounting for differences in swept area and not accounting for differences in swept area. Swept area seems to have little impact on weights.
+
+```{r fig.height=12, fig.width=12, message=FALSE, warning=FALSE}
+#Trying out some linear models
+catch_rest <- Catch %>% as.tibble() %>%
+              complete(
+              STATION,VIMSCODE,
+              fill = list(TotWght = 0,COUNT=0)
+              ) %>%
+              inner_join(.,Station) %>% 
+              mutate(SA=TowDistTrack*NetWidth,MEAN_SA = mean(SA),
+                     Adj_SA = SA/MEAN_SA,TotWght_Adj=TotWght*(Adj_SA)) %>%
+              mutate(PAIR=str_sub(STATION,-3)) %>%
+              mutate(SEASON=case_when(month(DATE) < 7 ~ 'S',TRUE~'F')) %>%
+              mutate(PAIR=paste(SEASON,PAIR,sep='')) %>% 
+              group_by(VIMSCODE,Restrictor,PAIR) %>% summarise(TotWght=sum(TotWght)) %>% 
+              ungroup() %>%
+              pivot_wider(names_from = c(Restrictor,VIMSCODE),
+                          values_from = TotWght,values_fill = 0) %>% 
+              as_tibble() %>%
+              pivot_longer(values_to = c('TotWght'),names_to = 'REST_SPP',-PAIR) %>%
+              mutate(Restrictor=str_sub(REST_SPP,1,1),VIMSCODE=str_sub(REST_SPP,3)) %>%
+              dplyr::select(-REST_SPP) %>%
+              pivot_wider(names_from = Restrictor,values_from = TotWght,values_fill=0) %>%
+              mutate(N=log10(N+1),Y=log10(Y+1)) %>%
+              left_join(.,NM_Species_Code_List_Color_Coordinated %>% 
+                       dplyr::select(VIMSCODE=SPCODE,COMMON), by = c('VIMSCODE'='VIMSCODE')) %>%
+              left_join(.,station_pair_current %>% dplyr::select(PAIR,CURRENT_DIF)) %>%
+              left_join(.,pair_zen_data %>% dplyr::select(PAIR,zenith)) %>%
+              left_join(.,dist)
+
+#Total pairs w/o a couple
+catch_rest$PAIR %>% n_distinct()
+
+#Catch with and without swept area
+#Checking to see if there is a need to adjust for swept area
+Catch %>% as.tibble() %>%
+              complete(
+              STATION,VIMSCODE,
+              fill = list(TotWght = 0,COUNT=0)
+              ) %>%
+              inner_join(.,Station) %>% 
+              mutate(SA=TowDistTrack*NetWidth,MEAN_SA = mean(SA),
+                     Adj_SA = SA/MEAN_SA,TotWght_Adj=TotWght*(Adj_SA)) %>% #CONVERTING FOR SWEPT AREA 
+              filter(VIMSCODE %in% c(1028,4,1,171,44,6,15)) %>% 
+              ggplot(aes(TotWght,TotWght_Adj,color=VIMSCODE)) + geom_point() + facet_wrap(~VIMSCODE,scales='free')
+
+#Making a plot of catch in control and treatment nets relative to a 1:1 line
+#Figure S1
+library(ggExtra)
+p <- catch_rest %>% filter(VIMSCODE %in% c(1028,4,1,171,44,6,15)) %>%
+          ggplot(aes(x=N,y=Y,colour=COMMON)) + geom_point() #+ facet_wrap(~COMMON)
+
+p <- p + geom_abline(slope = 1,intercept = 0) + 
+            labs(color='Species',fill='Species',x='Control Catch log10(kgs + 1)',
+              y='Treatment Catch log10(kgs + 1)') +
+              scale_color_tableau() + scale_fill_tableau() +
+              theme(legend.position="bottom") 
+
+p + theme(legend.position="none") -> raw_weight_plot 
+#ggMarginal(p, type="density") -> raw_weight_plot
+
+raw_weight_plot
+
+ind_sp_raw_weight_plot <- p + geom_abline(slope = 1,intercept = 0) + 
+    labs(color='Species',fill='Species',x='Control Catch log10(kgs + 1)',
+         y='Treatment Catch log10(kgs + 1)') +
+    scale_color_tableau() + scale_fill_tableau() +
+  theme(legend.position="none") + facet_wrap(~COMMON,scales = 'free')
+
+
+raw_weight_plot + ind_sp_raw_weight_plot + plot_annotation(tag_levels = 'A')
+
+```
+
+# A table of catch statisitcs
+
+This table becomes Table 2 and helps us identify the species of interest for the study.
+
+```{r}
+#Making a table of catch stats
+catch_table <- Catch %>% as.tibble() %>% 
+    complete(
+    STATION,VIMSCODE,
+    fill = list(TotWght = 0,COUNT=0)) %>%
+  inner_join(.,Station) %>% 
+  mutate(PAIR=str_sub(STATION,-3)) %>%
+  mutate(SEASON=case_when(month(DATE) < 7 ~ 'S',TRUE~'F')) %>%
+  mutate(PAIR=paste(SEASON,PAIR,sep='')) %>% 
+  mutate(POS_STATION=case_when(TotWght > 1 ~ 1, TRUE ~ 0)) %>%
+  group_by(VIMSCODE,Restrictor) %>% 
+  filter(VIMSCODE %in% c(1028,4,1,171,44,6,15)) %>% 
+  dplyr::summarise(AvgTotWght=mean(TotWght),
+                   SETotWght=sd(TotWght)/sqrt(142),
+                   CVTotWght=sd(TotWght)/AvgTotWght,
+                   TotWght=sum(TotWght),
+                   AvgTotCOUNT=mean(COUNT),
+                   SETotCOUNT=sd(COUNT)/sqrt(142),
+                   CVTotCOUNT=sd(COUNT)/AvgTotCOUNT,
+                   COUNT=sum(COUNT),
+                   N_STATIONS=sum(POS_STATION)) %>%
+  dplyr::arrange(-N_STATIONS) %>%
+  left_join(.,NM_Species_Code_List_Color_Coordinated %>% mutate(VIMSCODE=as.numeric(SPCODE)) %>%
+              dplyr::select(VIMSCODE,COMMON),by=('VIMSCODE')) %>% ungroup() %>%
+      mutate(PER_STAT = round(N_STATIONS/max(N_STATIONS+2),2)) %>% 
+      arrange(PER_STAT) %>% arrange(desc(N_STATIONS)) %>%
+  #filter(AvgTotCOUNT > 10,AvgTotWght>2.5,PER_STAT > 0.35) %>%
+  relocate('Restrictor'=Restrictor,'Species'=COMMON,
+           'Total positive stations'=N_STATIONS,
+           'Proportion positive stations'=PER_STAT,
+           'Total weight (kgs)'=TotWght,
+           'Station total count'=COUNT,
+           'Station mean weight (kgs)'=AvgTotWght,
+           'Standard error station weight (kgs)'=SETotWght,
+           'Coefficient of variation of station weight (kgs)'=CVTotWght,
+           'Station mean count'=AvgTotCOUNT,
+           'Standard error of station count'=SETotCOUNT,
+           'Coefficient of variation of station count'=CVTotCOUNT)
+
+catch_table
+
+library(gt)
+ct <- catch_table %>% ungroup() %>% dplyr::select(-VIMSCODE) %>%
+  gt(groupname_col = c("Species"),rowname_col = "Restrictor") %>% 
+  fmt_number(columns=c(4),decimals = c(2)) %>%
+  fmt_number(columns=c(5),decimals = c(0)) %>%
+  fmt_number(columns=c(6:12),decimals = c(1)) %>%
+  cols_label(Restrictor = md("**Restrictor**"),
+    'Total positive stations' = md("**Tot. positive stations**"),
+    'Species' = md("**Species**"),
+    'Proportion positive stations' = md("**Prop. positive stations**"),
+    'Total weight (kgs)' = md("**Total weight (kgs)**"),
+    'Station total count' = md("**Station total count**"),
+    'Station mean weight (kgs)' = md("**Station mean weight (kgs)**"),
+    'Standard error station weight (kgs)' = md("**SE station weight (kgs)**"),
+    'Coefficient of variation of station weight (kgs)' = md("**CV of station weight (kgs)**"),
+    'Station mean count' = md("**Station mean count**"),
+    'Standard error of station count' = md("**SE of station count**"),
+    'Coefficient of variation of station count' = md("**CV of station count**")) 
+
+#ct %>% gtsave("tab_2.html") #uncomment to save as html 
+
+```
+
+# More catch composition stats
+
+Also making station summary tables.
+
+```{r}
+#Looking at the number of number of paired positives
+Catch %>% as.tibble() %>% mutate(VIMSCODE=as.character(VIMSCODE)) %>%
+                left_join(.,NM_Species_Code_List_Color_Coordinated %>% 
+                dplyr::select(VIMSCODE=SPCODE,COMMON), by = c('VIMSCODE'='VIMSCODE')) %>%
+              group_by(COMMON,VIMSCODE) %>% tally() %>%
+              arrange(-n) %>% mutate(prop_pos=n/142) %>% head(20)
+
+station_pair_info <- Station %>% 
+                        mutate(PAIR=str_sub(STATION,-3)) %>%
+                        mutate(SEASON=case_when(month(DATE) < 7 ~ 'S',TRUE~'F')) %>%
+                        mutate(PAIR=paste(SEASON,PAIR,sep='')) %>%
+                        dplyr::select(PAIR,DATE,DepthBeg) %>% 
+                        mutate(DATE=as.POSIXct(DATE,format = '%Y-%M-%D')) %>%
+                        mutate(SEASON=case_when(month(DATE) < 7 ~ 'Spring',TRUE~'Fall')) %>%
+                        group_by(PAIR,DATE,SEASON) %>% summarise(DEPTH = mean(DepthBeg,na.rm=TRUE))
+
+station_table <- Station %>% 
+                        mutate(PAIR=str_sub(STATION,-3)) %>%
+                        mutate(SEASON=case_when(month(DATE) < 7 ~ 'S',TRUE~'F')) %>%
+                        mutate(PAIR=paste(SEASON,PAIR,sep='')) %>%
+                        #dplyr::select(PAIR,DATE,DepthBeg) %>% 
+                        mutate(DATE=as.POSIXct(DATE,format = '%Y-%M-%D')) %>%
+                        mutate(SEASON=case_when(month(DATE) < 7 ~ 'Spring',TRUE~'Fall')) %>%
+                        mutate(PAIR=str_sub(STATION,-4)) %>%
+                        mutate(Restrictor=str_sub(PAIR,1,1)) %>%
+                        mutate(Restrictor = case_when(Restrictor == '9' ~ 'Yes',TRUE ~ 'No')) %>%
+                        group_by(Restrictor,SEASON) %>% 
+                        summarise(Stations = n_distinct(STATION),
+                                  DEPTH = mean(DepthBeg),
+                                  VSPEED = mean(VSPEED),
+                                  TowDistTrack= mean(TowDistTrack),
+                                  NetHeight = mean(NetHeight),
+                                  NetWidth = mean(NetWidth),
+                                  CableOut_S = mean(CableOut_S),
+                                  DoorWidth= mean(DoorWidth))
+
+```
+
+# Plotting Aggregate Weights By Species
+
+Looking at some of the more common species. Black line is a 1:1. Models are basic GLM with 95% confidence intervals. Pairs of stations with outlying values are noted. These outliers are retained for the analysis but having some impact and potentially could be removed in some cases (e.g., pair F424 a large school of menhaden was caught in the tow without a restrictor and the vessel moved away for the paired set with the restrictor).
+
+```{r fig.height=12, fig.width=12}
+#Could do a lot more like this
+library(ggrepel)
+
+Catch %>% as.tibble() %>% 
+  inner_join(.,Station) %>% 
+  mutate(PAIR=str_sub(STATION,-3)) %>%
+  mutate(SEASON=case_when(month(DATE) < 7 ~ 'S',TRUE~'F')) %>%
+  mutate(PAIR=paste(SEASON,PAIR,sep='')) %>% 
+  #filter(!PAIR %in% c(479,227,457)) %>%
+  group_by(VIMSCODE,Restrictor,PAIR) %>% summarise(TotWght=sum(TotWght)) %>% 
+  pivot_wider(names_from = c(Restrictor,VIMSCODE),values_from = TotWght,values_fill = 0) %>%
+  as_tibble() %>%
+  pivot_longer(values_to = c('TotWght'),names_to = 'REST_SPP',-PAIR) %>%
+  mutate(Restrictor=str_sub(REST_SPP,1,1),VIMSCODE=str_sub(REST_SPP,3)) %>%
+  dplyr::select(-REST_SPP) %>%
+  pivot_wider(names_from = Restrictor,values_from = TotWght,values_fill=0) %>% #filter(N>0,Y>0) %>%
+  left_join(.,NM_Species_Code_List_Color_Coordinated %>% 
+           dplyr::select(VIMSCODE=SPCODE,COMMON), by = c('VIMSCODE'='VIMSCODE')) %>%
+  filter(VIMSCODE %in% c(1028,4,1,171,44,6,15)) %>% 
+  left_join(.,station_pair_info) %>% as_tibble() %>% 
+  #mutate(N=pracma::nthroot(N,4),Y=pracma::nthroot(Y,4)) %>%
+  #mutate(N=log10(N+1),Y=log10(Y+1)) %>%
+  left_join(.,station_pair_current %>% dplyr::select(PAIR,CURRENT_DIF)) %>%
+  left_join(.,pair_zen_data %>% dplyr::select(PAIR,zenith)) %>%
+  ggplot(aes(x=N,y=Y)) + geom_point(aes(colour=COMMON)) + theme(legend.position = 'None') +
+  stat_smooth(method = 'glm',level = 0.95,aes(colour=COMMON)) + geom_label_repel(aes(label=PAIR)) +
+  geom_abline(slope = 1,intercept = 0) + facet_wrap(.~COMMON,scales='free') +
+  theme(aspect.ratio = 1) + scale_color_tableau()
+
+```
+
+# Aggregate weight model analysis
+
+This is just one way to explore how well the values from paired stations align. We're log 10 + constant (1) transforming the data then fitting a simple model to the data. Values on the x axis are catches without the restrictor and values on the y are catches with the restrictor. The plots aren't exactly what the model is showing, but they are similar.
+
+```{r fig.height=12, fig.width=12, message=FALSE, warning=FALSE}
+library(performance)
+library(lme4)
+library(jtools)
+library(sjPlot)
+
+#Making data for fitting an aggregate model
+mod_data <- catch_rest %>% 
+            filter(VIMSCODE %in% c(1028,4,1,171,44,6,15)) %>% 
+            left_join(.,station_pair_info) %>%
+            dplyr::select(-DATE) %>% 
+            mutate(COMMON=as.factor(COMMON),CURRENT_DIF=as.factor(CURRENT_DIF))
+
+#mod_data$COMMON <- fct_rev(mod_data$COMMON)
+#mod_data$CURRENT_DIF <- fct_rev(mod_data$CURRENT_DIF)
+
+library(mgcv)
+library(gratia)
+model_0 <- gam(Y ~ s(N), 
+               data = mod_data, method='REML')
+
+model_1 <- gam(Y ~ s(N)+ s(N,COMMON,bs='sz'), 
+               data = mod_data, method='REML')
+
+model_2 <- gam(Y ~ s(N)+ s(N, by = COMMON), 
+               data = mod_data, method='REML')
+
+compare_performance(model_0,model_1,model_2,rank=TRUE,metrics = c('R2','RMSE','AIC weights'))
+
+AIC(model_1)
+(model_1)
+appraise(model_1)
+summary(model_1)
+
+#Each species relationship
+new_data_1 <-mod_data %>% filter(COMMON == unique(mod_data$COMMON)[1])
+new_data_2 <-mod_data %>% filter(COMMON == unique(mod_data$COMMON)[2])
+new_data_3 <-mod_data %>% filter(COMMON == unique(mod_data$COMMON)[3])
+new_data_4 <-mod_data %>% filter(COMMON == unique(mod_data$COMMON)[4])
+new_data_5 <-mod_data %>% filter(COMMON == unique(mod_data$COMMON)[5])
+new_data_6 <-mod_data %>% filter(COMMON == unique(mod_data$COMMON)[6])
+new_data_7 <-mod_data %>% filter(COMMON == unique(mod_data$COMMON)[7])
+
+new_data <- bind_rows(new_data_1,new_data_2,new_data_3,new_data_4,new_data_5,new_data_6,new_data_7)
+m1_pred <- fitted_values(model_1, data = new_data, scale = "response")
+
+p <- ggplot(m1_pred, aes(x = 10^N, y = 10^.fitted,
+                    colour = COMMON,group=COMMON)) +
+    geom_rug(aes(x=10^N,colour=COMMON),sides='b') +
+    #geom_point(data=aes())
+    geom_line() +
+    #geom_point()
+    geom_ribbon(aes(x=10^N,ymax=10^.upper_ci,ymin=10^.lower_ci,fill=COMMON,group=COMMON),alpha=0.2) +
+    facet_wrap(~ COMMON,scales='free',ncol=4) +
+    geom_abline(slope = 1,intercept = 0) + 
+    labs(color='Species',fill='Species',x='Control Catch (kgs)',
+         y='Treatment Catch (kgs)') +
+    scale_color_tableau() + scale_fill_tableau() +
+    scale_x_log10() + scale_y_log10()
+
+
+library(lemon)
+shift_legend2 <- function(p) {
+  # ...
+  # to grob
+  gp <- ggplotGrob(p)
+  facet.panels <- grep("^panel", gp[["layout"]][["name"]])
+  empty.facet.panels <- sapply(facet.panels, function(i) "zeroGrob" %in% class(gp[["grobs"]][[i]]))
+  empty.facet.panels <- facet.panels[empty.facet.panels]
+
+  # establish name of empty panels
+  empty.facet.panels <- gp[["layout"]][empty.facet.panels, ]
+  names <- empty.facet.panels$name
+  # example of names:
+  #[1] "panel-3-2" "panel-3-3"
+
+# now we just need a simple call to reposition the legend
+  reposition_legend(p, 'center', panel=names)
+}
+
+h <- shift_legend2(p)
+
+#All species combined
+new_data_all <- tidyr::expand(mod_data,
+                          N = unique(N))
+
+m1_pred_all <- fitted_values(model_1, data = new_data, scale = "response",exclude='s(N,COMMON)')
+
+g <- ggplot(m1_pred_all, aes(x = 10^N, y = 10^fitted)) +
+    geom_rug(aes(x=10^N),sides='b') +
+    #geom_point(data=aes())
+    geom_line() +
+    #geom_point()
+    geom_ribbon(aes(x=10^N,ymax=10^upper,ymin=10^lower),alpha=0.2) +
+    geom_abline(slope = 1,intercept = 0) +
+    labs(x='Control Catch (kgs)',
+         y='Treatment Catch (kgs)') +
+    scale_color_tableau() + scale_fill_tableau() +
+    scale_x_log10() + scale_y_log10()
+
+aggregate_weight <- (g + h)
+
+
+# Making a table of some of the weight model stats
+model_fam <- c(model_0 %>% summary() %>% .$family %>% .[1],
+                          model_1 %>% summary() %>% .$family %>% .[1],
+                          model_2 %>% summary() %>% .$family %>% .[1])
+
+model_link <- c(model_0 %>% summary() %>% .$family %>% .[2],
+                          model_1 %>% summary() %>% .$family %>% .[2],
+                          model_2 %>% summary() %>% .$family %>% .[2])
+
+model_formula <- c(model_0 %>% summary() %>% .$formula,
+                          model_1 %>% summary() %>% .$formula,
+                          model_2 %>% summary() %>% .$formula)
+
+model_tab <- tibble(
+
+'Model' = c('Model 0','Model 1','Model 2'), 
+
+'Family' = model_fam,
+'Link' = model_link,
+'Formula' = model_formula,
+
+'n' = c(summary(model_0)$n,summary(model_1)$n,summary(model_2)$n),
+'Degrees of freedom' = c(AIC(model_0,model_1,model_2)$df),
+'Resid. degrees of freedom' = c(summary(model_0)$residual.df,summary(model_1)$residual.df,summary(model_2)$residual.df),
+'R^2' = c(summary(model_0)$r.sq,summary(model_1)$r.sq,summary(model_2)$r.sq),
+'Deviance explained' = c(summary(model_0)$dev.expl,summary(model_1)$dev.expl,summary(model_2)$dev.expl),
+'AIC' = c(AIC(model_0,model_1,model_2)$AIC)) %>% arrange(`AIC`)
+
+```
+
+# Exploring the individual data
+
+Looking at density plots for each of the focus species. The expansion of counts happens using the 'uncount' function in dplyr.
+
+```{r fig.height=6, fig.width=12, message=FALSE, warning=FALSE}
+#Making long data for plotting with ggplot
+individual_data <- Individual %>% 
+  left_join(.,Station) %>% 
+  filter(VIMSCODE %in% c(1028,4,1,171,44,6,15)) %>% 
+  #uncount(round(ExpFactMeas_SA,0)) %>%
+  uncount(round(ExpFactMeas,0)) %>%
+  mutate(SEASON=case_when(month(DATE) < 7 ~ 'Spring',TRUE~'Fall')) %>%
+  #dplyr::group_by(STATION,Restrictor,VIMSCODE,LENGTH,SEASON) %>%
+  #dplyr::summarise(count=sum(LENGTH)) %>%
+  left_join(.,NM_Species_Code_List_Color_Coordinated %>% mutate(VIMSCODE=as.numeric(SPCODE)) %>%
+           dplyr::select(VIMSCODE,COMMON), by = c('VIMSCODE'='VIMSCODE')) %>%
+  ungroup() %>%
+  #removing some outliers
+  mutate(LENGTH_CM = round(LENGTH/10,0)) %>%
+  group_by(COMMON) %>%
+  mutate(LENGTH_NTILE = ntile(LENGTH_CM,n=500)) %>%
+  filter(LENGTH_NTILE > 1,LENGTH_NTILE < 499) %>%
+  ungroup() 
+
+#Making a plot with mirrored lengths
+ml <- ggplot(individual_data %>% mutate(Restrictor = case_when(Restrictor == 'Y' ~ 'Restricted',TRUE ~ 'Standard')), aes(x=LENGTH/10,fill=Restrictor,color=Restrictor,group=Restrictor) ) +
+  geom_histogram(data = . %>% filter(Restrictor=='Restricted'), aes(y = after_stat(count),fill=Restrictor),binwidth = .25) +
+  geom_histogram(data = . %>% filter(Restrictor!='Restricted'), aes(y = - after_stat(count),fill=Restrictor),binwidth = .25) +
+  facet_wrap(~COMMON,scales = 'free',ncol=7) + scale_fill_tableau() + scale_color_tableau() +
+  labs(color='Tow type',fill="Tow type",x='Length (cm)',y='No individuals')
+
+ml -> mirrored_lengths
+
+mirrored_lengths
+
+```
+
+# Length based modeling
+## Making data and testing for over/under dispersion
+
+Fitting a regular GLM to the individual data to determine if a binomial model is appropriate (i.e., 'Dispersion parameter for binomial family taken to be 1').
+
+```{r fig.height=6, fig.width=6, message=FALSE, warning=FALSE}
+#Making wide format data for fitting binomial model
+length_mod_data <- Individual %>% filter(VIMSCODE %in% c(1028,4,1,171,44,6,15)) %>%
+                      #::skim()
+                      left_join(.,Station) %>% 
+                      #nrow()
+                      uncount(round(ExpFactMeas,0)) %>%
+                      mutate(PAIR=str_sub(STATION,-3)) %>%
+                      mutate(SEASON=case_when(month(DATE) < 7 ~ 'S',TRUE~'F')) %>%
+                      mutate(PAIR=paste(SEASON,PAIR,sep='')) %>%
+                      dplyr::group_by(STATION,PAIR,Restrictor,VIMSCODE,LENGTH,SEASON) %>%
+                      tally() %>% mutate(count = n) %>% dplyr::select(-n) %>%
+                      pivot_wider(values_from = count,names_from = Restrictor,-STATION,values_fill=0) %>%
+                      left_join(.,NM_Species_Code_List_Color_Coordinated %>% mutate(VIMSCODE=as.numeric(SPCODE)) %>%
+                      dplyr::select(VIMSCODE,COMMON), by = c('VIMSCODE'='VIMSCODE')) %>%
+                      left_join(.,station_pair_current %>% dplyr::select(PAIR,CURRENT_DIF)) %>%
+                      left_join(.,pair_zen_data %>% dplyr::select(PAIR,zenith)) %>%
+                      mutate(LENGTH_CM = round(LENGTH/10,0)) %>%
+                      group_by(PAIR,VIMSCODE,LENGTH_CM,SEASON,COMMON,CURRENT_DIF,zenith) %>% 
+                      summarise(N=sum(N),Y=sum(Y),TOT = sum(N,Y),PROP=Y/TOT) %>%
+                      group_by(COMMON) %>%
+                      mutate(LENGTH_NTILE = ntile(LENGTH_CM,100)) %>%
+                      filter(LENGTH_NTILE > 10,LENGTH_NTILE < 90)
+
+# Plot with a loess smooth
+t <- length_mod_data %>% ggplot(aes(x=LENGTH_CM,y=PROP,colour=COMMON,fill=COMMON)) + geom_point(alpha=0.1) + stat_smooth(method="loess") + facet_wrap(~COMMON,ncol=4,scales='free') + scale_color_tableau() + scale_fill_tableau() + labs(x='Length (cm)',y='Proportion of catch in treatment',colour='Species',fill='Species')
+
+catch_at_length_exploration <- shift_legend2(t)
+
+#Adding averaged station covariates
+station_pair_info_avg <- Station %>% mutate(PAIR=str_sub(STATION,-3)) %>%
+                            mutate(SEASON=case_when(month(DATE) < 7 ~ 'S',TRUE~'F')) %>%
+                            mutate(PAIR=paste(SEASON,PAIR,sep='')) %>%
+                            group_by(PAIR) %>%
+                            dplyr::summarise(DoorWidth=mean(DoorWidth),SCOPE=mean(SCOPE),CableOut_P=mean(CableOut_P),
+                                             LATITUDE_END=mean(LATITUDE_END),
+                                             LONGITUDE_END=mean(LONGITUDE_END),
+                                             LATITUDE_START=mean(LATITUDE_START),
+                                             LONGITUDE_START=mean(LONGITUDE_START),
+                                             NetWidth=mean(NetWidth),
+                                             NetHeight=mean(NetHeight),TOWDIST=mean(TOWDIST),
+                                             VSPEED=mean(VSPEED),DepthEnd=mean(DepthEnd),DepthBeg=mean(DepthBeg))
+
+#Looking at which tow was first
+station_pair_info_order <- Station %>% mutate(PAIR=str_sub(STATION,-3)) %>%
+                            mutate(SEASON=case_when(month(DATE) < 7 ~ 'S',TRUE~'F')) %>%
+                            mutate(PAIR=paste(SEASON,PAIR,sep='')) %>%
+                            dplyr::select(Restrictor,PAIR,TowBegin) %>%
+                            mutate(TowBegin=as.POSIXct(TowBegin,format='%Y-%M-%D %H:%M:%S')) %>%
+                            pivot_wider(names_from = Restrictor,values_from = TowBegin) %>%
+                            mutate(ORDER=case_when(Y > N ~ 'YN',TRUE ~ 'NY')) %>%
+                            dplyr::select(PAIR,ORDER)
+
+#Adding station information
+length_mod_data <- length_mod_data %>% left_join(.,station_pair_info_order) %>% left_join(.,station_pair_info_avg)
+
+#Loading mgcv for fitting
+library(mgcv)
+
+#Looking at the dispersion in the data
+library(dispmod)
+length_mod_bi_0 <- glm(cbind(Y,N) ~ LENGTH_CM,
+                      data=length_mod_data %>% mutate(PAIR=as.factor(PAIR)) %>% ungroup(),
+                      family=binomial(link="logit"))
+
+model.disp.test <- glm.binomial.disp(length_mod_bi_0, verbose = T)
+print(paste("Dispersion parameter is:", model.disp.test$dispersion))
+
+```
+
+## Fitting length-based GAMM models
+
+Here we're interested in if there are significant effects of the covariates and how large the effects are.
+
+```{r}
+#Fitting basic binomial GAM models then adding in random intercepts for the station pair and a random slope for each station pair
+library(mgcv)
+library(gratia)
+
+length_mod_bi_0 <- gam(PROP ~ s(LENGTH_CM) + s(LENGTH_CM,COMMON,bs='sz') + 
+                         s(PAIR,bs='re'),
+                      weights = TOT,
+                      data=length_mod_data %>%
+                      mutate(PAIR=as.factor(as.character(PAIR)),COMMON=as.factor(COMMON)),
+                      family=binomial(link="logit"),method='REML',select=TRUE)
+
+length_mod_bi_1 <- gam(PROP ~ s(LENGTH_CM) + s(LENGTH_CM,COMMON,bs='sz') + 
+                         s(PAIR,bs='re') + s(DepthEnd) + s(zenith) + 
+                         (ORDER) + (SEASON) + (CURRENT_DIF),
+                      weights = TOT,
+                      data=length_mod_data %>%
+                      mutate(PAIR=as.factor(as.character(PAIR)),COMMON=as.factor(COMMON)),
+                      family=binomial(link="logit"),method='REML',select=TRUE)
+
+length_mod_bi_2 <- gam(PROP ~ s(LENGTH_CM) + s(LENGTH_CM,COMMON,bs='sz') + 
+                         s(PAIR,bs='re'),
+                      weights = TOT,
+                      data=length_mod_data %>%
+                      mutate(PAIR=as.factor(as.character(PAIR)),COMMON=as.factor(COMMON)),
+                      family=quasibinomial(link="logit"),method='REML',select=TRUE)
+
+length_mod_bi_3 <- gam(PROP ~ s(LENGTH_CM) + s(LENGTH_CM,COMMON,bs='sz') + 
+                         s(PAIR,bs='re') + s(DepthEnd) + s(zenith) + 
+                         (ORDER) + (SEASON) + (CURRENT_DIF),
+                      weights = TOT,
+                      data=length_mod_data %>%
+                      mutate(PAIR=as.factor(as.character(PAIR)),COMMON=as.factor(COMMON)),
+                      family=quasibinomial(link="logit"),method='REML',select=TRUE)
+
+
+
+```
+
+# Comparing model fits 
+
+Making plots of model predictions for the best model fit to individual catch data.
+
+```{r}
+#Comparing model fit
+compare_performance(length_mod_bi_0,length_mod_bi_1,length_mod_bi_2,length_mod_bi_3,metrics ='common',rank=TRUE)
+
+#Making a table of mode lfit statistics
+length_model_fam <- c(length_mod_bi_0 %>% summary() %>% .$family %>% .[1],
+                          length_mod_bi_1 %>% summary() %>% .$family %>% .[1],
+                          length_mod_bi_2 %>% summary() %>% .$family %>% .[1],
+                          length_mod_bi_3 %>% summary() %>% .$family %>% .[1]
+                      )
+
+length_model_link <- c(length_mod_bi_0 %>% summary() %>% .$family %>% .[2],
+                          length_mod_bi_1 %>% summary() %>% .$family %>% .[2],
+                          length_mod_bi_2 %>% summary() %>% .$family %>% .[2],
+                          length_mod_bi_3 %>% summary() %>% .$family %>% .[2]
+                       )
+
+length_model_formula <- c(length_mod_bi_0 %>% summary() %>% .$formula,
+                          length_mod_bi_1 %>% summary() %>% .$formula,
+                          length_mod_bi_2 %>% summary() %>% .$formula,
+                          length_mod_bi_3 %>% summary() %>% .$formula
+                       )
+
+length_model_tab <- tibble(
+
+'Model' = c('Model 0','Model 1','Model 2','Model 3'), 
+
+'Family' = length_model_fam,
+'Link' = length_model_link,
+'Formula' = length_model_formula,
+
+'n' = c(summary(length_mod_bi_0)$n,summary(length_mod_bi_1)$n,summary(length_mod_bi_2)$n,summary(length_mod_bi_3)$n),
+'Degrees of freedom' = c(AIC(length_mod_bi_0,length_mod_bi_1,length_mod_bi_2,length_mod_bi_3)$df),
+'Resid. degrees of freedom' = c(summary(length_mod_bi_0)$residual.df,summary(length_mod_bi_1)$residual.df,summary(length_mod_bi_2)$residual.df,summary(length_mod_bi_3)$residual.df),
+'R^2' = c(summary(length_mod_bi_0)$r.sq,summary(length_mod_bi_1)$r.sq,summary(length_mod_bi_2)$r.sq,summary(length_mod_bi_3)$r.sq),
+'Deviance explained' = c(summary(length_mod_bi_0)$dev.expl,summary(length_mod_bi_1)$dev.expl,summary(length_mod_bi_2)$dev.expl,summary(length_mod_bi_3)$dev.expl),
+'AIC' = c(AIC(length_mod_bi_0,length_mod_bi_1,length_mod_bi_2,length_mod_bi_3)$AIC)) %>% arrange(`Degrees of freedom`)
+
+
+#Looking at the best model
+summary(length_mod_bi_2) 
+gam.check(length_mod_bi_2)
+summary(length_mod_bi_2)
+draw(length_mod_bi_2, select = 1) 
+
+pred_df <- NULL
+pred_df <- data.frame()
+pred_df <- with(length_mod_data, 
+                expand.grid(LENGTH_CM = unique(LENGTH_CM), 
+                            COMMON = unique(COMMON)
+                            )
+                )
+# Predictions
+pred <- predict(length_mod_bi_2, newdata = pred_df, se.fit = TRUE, type = "link",exclude = c('s(PAIR)'), newdata.guaranteed = TRUE)
+pred_df <- cbind(pred_df %>% ungroup(), as.data.frame(pred))
+pred_df <- pred_df |> mutate(est = fit,se = se.fit) %>%
+  mutate(lower = est - (2 * se),
+         upper = est + (2 * se))
+  
+
+pred_df
+
+
+pred_df_1 <- pred_df %>% filter(COMMON == unique(length_mod_data$COMMON)[1]) %>% filter(LENGTH_CM > min(length_mod_data %>% filter(COMMON == unique(length_mod_data$COMMON)[1]) %>% .$LENGTH_CM),LENGTH_CM < max(length_mod_data %>% filter(COMMON == unique(length_mod_data$COMMON)[1]) %>% .$LENGTH_CM))
+
+pred_df_2 <- pred_df %>% filter(COMMON == unique(length_mod_data$COMMON)[2]) %>% filter(LENGTH_CM > min(length_mod_data %>% filter(COMMON == unique(length_mod_data$COMMON)[2]) %>% .$LENGTH_CM),LENGTH_CM < max(length_mod_data %>% filter(COMMON == unique(length_mod_data$COMMON)[2]) %>% .$LENGTH_CM))
+
+pred_df_3 <- pred_df %>% filter(COMMON == unique(length_mod_data$COMMON)[3]) %>% filter(LENGTH_CM > min(length_mod_data %>% filter(COMMON == unique(length_mod_data$COMMON)[3]) %>% .$LENGTH_CM),LENGTH_CM < max(length_mod_data %>% filter(COMMON == unique(length_mod_data$COMMON)[3]) %>% .$LENGTH_CM))
+
+pred_df_4 <- pred_df %>% filter(COMMON == unique(length_mod_data$COMMON)[4]) %>% filter(LENGTH_CM > min(length_mod_data %>% filter(COMMON == unique(length_mod_data$COMMON)[4]) %>% .$LENGTH_CM),LENGTH_CM < max(length_mod_data %>% filter(COMMON == unique(length_mod_data$COMMON)[4]) %>% .$LENGTH_CM))
+
+pred_df_5 <- pred_df %>% filter(COMMON == unique(length_mod_data$COMMON)[5]) %>% filter(LENGTH_CM > min(length_mod_data %>% filter(COMMON == unique(length_mod_data$COMMON)[5]) %>% .$LENGTH_CM),LENGTH_CM < max(length_mod_data %>% filter(COMMON == unique(length_mod_data$COMMON)[5]) %>% .$LENGTH_CM))
+
+pred_df_6 <- pred_df %>% filter(COMMON == unique(length_mod_data$COMMON)[6]) %>% filter(LENGTH_CM > min(length_mod_data %>% filter(COMMON == unique(length_mod_data$COMMON)[6]) %>% .$LENGTH_CM),LENGTH_CM < max(length_mod_data %>% filter(COMMON == unique(length_mod_data$COMMON)[6]) %>% .$LENGTH_CM))
+
+pred_df_7 <- pred_df %>% filter(COMMON == unique(length_mod_data$COMMON)[7]) %>% filter(LENGTH_CM > min(length_mod_data %>% filter(COMMON == unique(length_mod_data$COMMON)[7]) %>% .$LENGTH_CM),LENGTH_CM < max(length_mod_data %>% filter(COMMON == unique(length_mod_data$COMMON)[7]) %>% .$LENGTH_CM))
+
+
+pred_df_new <- bind_rows(pred_df_1,pred_df_2,pred_df_3,pred_df_4,pred_df_5,pred_df_6,pred_df_7) %>% as.tibble() %>% mutate(COMMON=as.character(COMMON))
+
+#Predictions for the ind species
+library(boot)
+lp <- ggplot(pred_df_new, aes(x = LENGTH_CM, y = inv.logit(est),
+                    colour = COMMON)) +
+    #geom_rug(aes(x=LENGTH_CM,colour=COMMON),sides='b') +
+    #geom_point(data=aes())
+    geom_line() +
+    #stat_smooth() +
+    #geom_point() +
+    geom_ribbon(aes(x=LENGTH_CM,ymax=inv.logit(upper),ymin=inv.logit(lower),fill=COMMON,group=COMMON),alpha=0.2) +
+    facet_wrap(~ COMMON,scales='free_x',ncol=4) +
+    geom_hline(yintercept = 0.50) +
+    scale_y_continuous(limits=c(0,1)) + 
+    scale_color_tableau() + scale_fill_tableau() +
+    labs(x='Length (cm)',y='Proportion of catch in treatment',colour='Species',fill='Species')
+
+shift_legend2(lp)
+
+
+#Predictions for the main effect
+pred_df_all <- NULL
+pred_df_all <- data.frame()
+pred_df_all <- with(length_mod_data, 
+                expand.grid(LENGTH_CM = unique(LENGTH_CM)#,
+                            #dum = 0
+                            #COMMON = unique(COMMON)#,
+                            #PAIR = length_mod_data$PAIR[50]
+                            #PAIR = unique(PAIR)
+                            )
+                )
+# Predictions
+pred_all <- predict(length_mod_bi_2, newdata = pred_df_all, se.fit = TRUE, type = "link",exclude = c('s(PAIR)','s(LENGTH_CM,COMMON)'),newdata.guaranteed = TRUE)
+pred_df_all <- cbind(pred_df_all, as.data.frame(pred_all))
+pred_df_all <- pred_df_all |> 
+  mutate(fitted_lower = fit - (2 * se.fit),
+         fitted_upper = fit + (2 * se.fit))
+
+pred_df_all
+
+
+library(boot)
+lp_all <- ggplot(pred_df_all, aes(x = LENGTH_CM, y = inv.logit(fit))) +
+    #geom_rug(aes(x=LENGTH_CM,colour=COMMON),sides='b') +
+    #geom_point(data=aes())
+    geom_line() +
+    #stat_smooth() +
+    #geom_point() +
+    geom_ribbon(aes(x=LENGTH_CM,ymax=inv.logit(fitted_upper),ymin=inv.logit(fitted_lower)),alpha=0.2) +
+    #facet_wrap(~ COMMON,scales='free_x',ncol=4) +
+    geom_hline(yintercept = 0.50) +
+    scale_y_continuous(limits=c(0,1)) + 
+    scale_color_tableau() + scale_fill_tableau() +
+    labs(x='Length (cm)',y='Proportion of catch in treatment',colour='Species',fill='Species')
+
+#Putting things together
+lp_all + lp
+
+
+#sensitivity analysis sand box
+#Trying out ggemmeans to reduce coding
+#And NTILE lengths to make the length values the same across species (as CMs are different)
+#Simpler way to get the same answer
+#LENGTH_NTILE model
+length_mod_bi_2a <- gam(Y/TOT ~ s(LENGTH_NTILE) + s(LENGTH_NTILE,COMMON,bs='sz') +
+                         s(PAIR,bs='re'),
+                      weights = TOT,
+                      data=length_mod_data %>% #filter(!PAIR %in% c('F479','F547')) %>% without pairs that were large outliers in catch weights
+                        #group_by(PAIR,SEASON) %>% sample_frac(0.75) %>% ungroup() %>% looking at subsets of random pairs
+                      mutate(PAIR=as.factor(as.character(PAIR)),COMMON=as.factor(COMMON)),
+                      family=quasibinomial(link="logit"),method='REML',select=TRUE)
+
+#Comparing to prior models
+compare_performance(length_mod_bi_0,length_mod_bi_1,length_mod_bi_2,length_mod_bi_2a,length_mod_bi_3,metrics = c('R2','RMSE'),rank=TRUE)
+
+#ggeffects giving odd predictions (means too high)
+# length_mod_bi_2a %>% ggeffects::predict_response(terms = c('LENGTH_NTILE','COMMON'),margin="mean_reference",type = 'random') %>% 
+#   plot() + facet_wrap(~group) + geom_hline(yintercept = 0.50)
+
+library(ggeffects)
+length_mod_bi_2a.emmeans <- ggemmeans(length_mod_bi_2a, 
+terms=c('LENGTH_NTILE','COMMON'), margin = 'marginalmean',type="count")
+
+plot(length_mod_bi_2a.emmeans, show_data=T) + 
+    labs(title="Predictions by ggemmeans()") + scale_color_tableau() + scale_fill_tableau() +
+    theme(text = element_text(size = 15)) + facet_wrap(~group) + geom_hline(yintercept = 0.50)
+
+```
+
+# Looking at gear metrics
+
+These are derived from the Darana's simrad net mesuration system.
+
+```{r}
+library(patchwork)
+#Revised gear plots
+gear_data <- Station %>% mutate(PAIR=str_sub(STATION,-3)) %>%
+                            mutate(SEASON=case_when(month(DATE) < 7 ~ 'S',TRUE~'F')) %>%
+                            mutate(PAIR=paste(SEASON,PAIR,sep='')) %>%
+                        dplyr::select(STATION,PAIR,SEASON,Restrictor,DoorWidth,SCOPE,CableOut_P,CableOut_S,
+                                LATITUDE_END,NetWidth,NetHeight,TOWDIST,VSPEED,DepthEnd,DepthBeg) %>%
+                        mutate(SEASON=case_when(SEASON == 'S' ~ 'SPRING',TRUE~'FALL'))
+
+
+gear_data$SEASON <- factor(gear_data$SEASON, levels = c("SPRING", "FALL"))
+
+
+a <- gear_data %>% #filter(DepthEnd<100) %>%
+  #mutate(Restrictor = case_when(Restrictor == 'Y' ~ 'Yes',TRUE ~ 'No')) %>%
+  mutate(Restrictor = case_when(Restrictor == 'N' ~ 'Restricted',TRUE ~ 'Standard')) %>%
+  filter(NetHeight < 6.25) %>% # Removing an outlier
+  ggplot(aes(Restrictor,NetHeight,colour=Restrictor)) + geom_boxplot() + 
+  geom_hline(yintercept = 4.7,linetype='dashed') +
+  geom_hline(yintercept = 5.3,linetype='dashed') +
+  #stat_summary(color='Black',fun.data = mean_cl_normal, geom = "errorbar", fun.args = list(mult = 1)) + 
+  #geom_point(alpha=0.4) + 
+  theme(legend.position = 'None') +
+  #geom_label_repel(aes(label=STATION)) +
+  #facet_wrap(~SEASON) + 
+  scale_x_discrete(limits = rev) +
+  scale_color_tableau(direction = -1) +
+  labs(y='Net height (m)',x='')
+
+b <- gear_data %>% #filter(DepthEnd<100) %>%
+  #mutate(Restrictor = case_when(Restrictor == 'Y' ~ 'Yes',TRUE ~ 'No')) %>%
+  mutate(Restrictor = case_when(Restrictor == 'Y' ~ 'Restricted',TRUE ~ 'Standard')) %>%
+  filter(NetWidth>12) %>%
+  ggplot(aes(Restrictor,NetWidth,colour=Restrictor)) + geom_boxplot() + 
+  geom_hline(yintercept = 14.8,linetype='dashed') +
+  geom_hline(yintercept = 12.4,linetype='dashed') +
+  #stat_summary(color='Black',fun.data = mean_cl_normal, geom = "errorbar", fun.args = list(mult = 1)) + 
+  #geom_point(alpha=0.4) + 
+  theme(legend.position = 'None') +
+  #geom_label_repel(aes(label=STATION)) +
+  #facet_wrap(~SEASON) + 
+  scale_x_discrete(limits = rev) +
+  scale_color_tableau(direction = -1) +
+  labs(y='Net width (m)',x='')
+
+c <- gear_data %>% #filter(DepthEnd<100) %>%
+  #mutate(Restrictor = case_when(Restrictor == 'Y' ~ 'Yes',TRUE ~ 'No')) %>%
+  mutate(Restrictor = case_when(Restrictor == 'Y' ~ 'Restricted',TRUE ~ 'Standard')) %>%
+  ggplot(aes(Restrictor,DoorWidth,colour=Restrictor)) + geom_boxplot() + 
+  #geom_hline(yintercept = 28,linetype='dashed') +
+  #geom_hline(yintercept = 36,linetype='dashed') +
+  #stat_summary(color='Black',fun.data = mean_cl_normal, geom = "errorbar", fun.args = list(mult = 1)) + 
+  #geom_point(alpha=0.4) + 
+  theme(legend.position = 'None') +
+  #geom_label_repel(aes(label=STATION)) +
+  #facet_wrap(~SEASON) + 
+  scale_x_discrete(limits = rev) +
+  scale_color_tableau(direction = -1) +
+  labs(y='Door spread (m)',x='')
+
+d <- gear_data %>% 
+  #mutate(Restrictor = case_when(Restrictor == 'Y' ~ 'Yes',TRUE ~ 'No')) %>%
+  mutate(Restrictor = case_when(Restrictor == 'Y' ~ 'Restricted',TRUE ~ 'Standard')) %>%
+  mutate(theta=((DoorWidth * 3.28084)/2)/210,
+         bridle_angle = asin(theta),bridle_angle = bridle_angle * ( 180.0 / pi )) %>%
+  ggplot(aes(y=bridle_angle,x=Restrictor,color=Restrictor)) + geom_boxplot() +
+  scale_color_tableau(direction = -1) +
+  scale_x_discrete(limits = rev) +
+  theme(legend.position = 'None') +
+  labs(y=expression('Bridle angle'~({o})),x='')
+
+gear_metrics_plot <- (a + b + c + d)
+
+gear_metrics_plot
+
+```
+
+# Plotting out products from the script
+
+Uncomment to run code associated with each MS component.
+
+```{r}
+# #Figure 1
+# sampling_map_2
+# 
+# #Figure 2
+# gear_metrics_plot + plot_annotation(tag_levels = 'A')
+# 
+# #Figure 3
+# catch_ordination + plot_annotation(tag_levels = 'A')
+# 
+# #Figure 4
+# aggregate_weight + plot_layout(widths = c(1, 2)) + plot_annotation(tag_levels = 'A')
+# 
+# #Figure 5
+# lp_all + shift_legend2(lp) + plot_layout(widths = c(1, 2)) + plot_annotation(tag_levels = 'A')
+# 
+# #Table 1
+# station_table %>% 
+#   mutate(DEPTH=DEPTH*0.3048) %>% 
+#   rename('Season'=SEASON,
+#          'Depth (m)'=DEPTH,
+#          'Vessel speed (kn)'=VSPEED,
+#          'Tow distance (m)'=TowDistTrack,
+#          'Net height (m)'=NetHeight,
+#          'Door width (m)' = DoorWidth,
+#          'Net width (m)'= NetWidth,
+#          'Cable out (ftm)' =  CableOut_S) %>% 
+#           ungroup() %>% gt() %>% fmt_number(columns=c(4:10),decimals = 2)
+# 
+# Station %>% mutate(DEPTH=DepthBeg*0.3048) %>% .$DEPTH %>% min()
+# 
+# #Table 2
+# ct
+# 
+# #Table 3
+# model_tab %>% gt() %>% fmt_number(columns=c(6:10),decimals = 2)
+# 
+# #Table 4
+# length_model_tab %>% gt() %>% fmt_number(columns=c(6:10),decimals = 2)
+# 
+# 
+# #Figure S1
+# raw_weight_plot + ind_sp_raw_weight_plot + plot_annotation(tag_levels = 'A')
+# 
+# #Figure S2
+# mirrored_lengths
+# 
+# #Figure S3
+# shift_legend2(t)
+
+
+```
+
